@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Monitoraggio Vulcani Campania</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+ <!-- importo i file CSS e JS di Leaflet (libreria open-source) -->
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #192230;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* ─── Legenda ─────────────────────────────────────────────── */
+.legend {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(25, 34, 48, 0.95);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid #4175C0;
+    color: white;
+    font-family: monospace;
+    font-size: clamp(10px, 0.85vw, 22px); /* responsive fluido */
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+    max-width: calc(100% - 40px);
+}
+
+.legend h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.2em;
+}
+
+.legend .row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    gap: 8px;
+}
+
+.legend .color-box {
+    width: 1.4em;
+    height: 1.4em;
+    min-width: 14px;
+    min-height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ─── Popup Leaflet ──────────────────────────────────────── */
+.leaflet-popup-content-wrapper {
+    background: #192230;
+    color: white;
+    border: 1px solid #4175C0;
+    border-radius: 10px;
+    font-size: clamp(12px, 0.9vw, 24px);
+}
+
+.leaflet-popup-tip {
+    background: #192230;
+}
+
+/* ─── Zoom control ───────────────────────────────────────── */
+.leaflet-touch .leaflet-bar a {
+    width:  clamp(30px, 2.2vw, 60px);
+    height: clamp(30px, 2.2vw, 60px);
+    line-height: clamp(30px, 2.2vw, 60px);
+    font-size: clamp(14px, 1.2vw, 30px);
+}
+
+</style>
+</head>
+
+<body>
+<div id="map"></div>
+<div class="legend">
+    <h4>Stato Attività</h4>
+    <div class="row"><div class="color-box" style="background:#2e7d32;"></div> Normale (M &lt; 2.0)</div>
+    <div class="row"><div class="color-box" style="background:#ff9800;"></div> Attenzione (M 2.0–3.5)</div>
+    <div class="row"><div class="color-box" style="background:#d32f2f;"></div> Allarme (M ≥ 3.5)</div>
+    <div class="row"><div class="color-box" style="background:#ef6c00;"></div> Sciame Attivo</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  UTILITY – dimensioni responsive
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * @param {string} stato  – 'NORMALE' | 'ATTENZIONE' | 'ALLARME' | 'SCIAME'
+ * @returns {number}
+ */
+function markerRadius(stato) {
+    const base = Math.max(8, Math.round(window.innerWidth / 160));
+    // ~12 a 1920px · ~20 a 3200px · ~27 a 4320px · ~40 a 6400px
+    const delta = { 'ALLARME': 8, 'ATTENZIONE': 4, 'SCIAME': 6 };
+    return base + (delta[stato] || 0);
+}
+
+/**
+ * Raggio del cerchio di monitoraggio attorno al vulcano (in metri),
+ * costante in termini geografici ma la funzione è centralizzata
+ * per poterlo modificare facilmente.
+ */
+function circleRadius() {
+    return 5000;   // 5 km – invariato sulla mappa geografica
+}
+
+/**
+ * Padding fitBounds adattato alla larghezza schermo.
+ */
+function fitPadding() {
+    const w = window.innerWidth;
+    const p = Math.round(w / 25);   // ~77 a 1920 · ~154 a 3840 · ~250 a 6400
+    return { paddingTopLeft: [p, p], paddingBottomRight: [p, p] };
+}
+
+/**
+ * Zoom iniziale adattato alla larghezza schermo.
+ * Su schermi piccoli la mappa mostra meno tile quindi zoom 10
+ * va bene; su schermi enormi si può abbassare per mostrare
+ * il contesto geografico più ampio.
+ */
+function initialZoom() {
+    const w = window.innerWidth;
+    if (w >= 5000) return 8;
+    if (w >= 3200) return 9;
+    if (w >= 2000) return 9;
+    return 10;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  VARIABILI GLOBALI
+// ══════════════════════════════════════════════════════════════
+let map           = null;
+let currentLayer  = null;
+let resizeTimeout = null;
+let isInitialized = false;
+
+const vulcaniData = { /* coordinate di ogni vulcano */
+    'VESUVIO': {
+        nome: 'Vesuvio',
+        lat: 40.8214, lng: 14.4265,
+        stato: 'NORMALE', magnitudo: 0,
+        marker: null, circle: null,
+        colori: {
+            'NORMALE':    '#2e7d32',
+            'ATTENZIONE': '#ff9800',
+            'ALLARME':    '#d32f2f',
+            'SCIAME':     '#ef6c00'
+        }
+    },
+    'CAMPI FLEGREI': {
+        nome: 'Campi Flegrei',
+        lat: 40.8270, lng: 14.1390,
+        stato: 'NORMALE', magnitudo: 0,
+        marker: null, circle: null,
+        colori: {
+            'NORMALE':    '#2e7d32',
+            'ATTENZIONE': '#ff9800',
+            'ALLARME':    '#d32f2f',
+            'SCIAME':     '#ef6c00'
+        }
+    },
+    'ISCHIA': {
+        nome: 'Ischia',
+        lat: 40.7320, lng: 13.9486,
+        stato: 'NORMALE', magnitudo: 0,
+        marker: null, circle: null,
+        colori: {
+            'NORMALE':    '#2e7d32',
+            'ATTENZIONE': '#ff9800',
+            'ALLARME':    '#d32f2f',
+            'SCIAME':     '#ef6c00'
+        }
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+//  MAPPA
+// ══════════════════════════════════════════════════════════════
+function getVulcaniBounds() { // restituisce array di coordinate [[lat,lang], [lat,lng], [lat,lng]]
+    return Object.values(vulcaniData).map(v => [v.lat, v.lng]);
+}
+
+function fitToVulcani() { // zoom automatico fichè tutti e 3 i vulcani siano visibili
+    if (!map) return;
+    map.fitBounds(getVulcaniBounds(), fitPadding());
+}
+
+function handleResize() {
+    if (!map) return;
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        map.invalidateSize();
+        fitToVulcani();
+        // Ridisegna marker con raggio aggiornato
+        for (const zona in vulcaniData) {
+            const v = vulcaniData[zona];
+            if (v.marker) {
+                v.marker.setRadius(markerRadius(v.stato));
+            }
+        }
+    }, 250);
+}
+
+function initMap() {
+    if (isInitialized && map !== null) return;
+    if (map !== null) { map.remove(); map = null; }
+
+    const container = document.getElementById('map');
+    if (!container) { console.error('#map non trovato'); return; }
+
+    try {
+        map = L.map('map', {
+            zoomControl:         true,
+            fadeAnimation:       true,
+            zoomAnimation:       true,
+            markerZoomAnimation: true,
+            inertia:             true,
+            inertiaDeceleration: 3000,
+            inertiaMaxSpeed:     1500
+        });
+
+        if (window.innerWidth <= 768) {
+            map.zoomControl.setPosition('bottomright');
+        }
+
+        map.setView([40.82, 14.25], initialZoom());
+        isInitialized = true;
+        console.log('Mappa inizializzata');
+    } catch (err) {
+        console.error('Errore inizializzazione mappa:', err);
+        isInitialized = false;
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BASE MAP
+// ══════════════════════════════════════════════════════════════
+window.setBaseMap = function(url, attribution, minZoom , maxZoom) {
+    if (!map || !isInitialized) { initMap(); }
+
+    setTimeout(() => {
+        if (!map) { console.error('setBaseMap: mappa non disponibile'); return; }
+
+        if (currentLayer) { map.removeLayer(currentLayer); }
+
+        currentLayer = L.tileLayer(url, {
+            minZoom:      minZoom || 0,
+            maxZoom:      maxZoom || 20,
+            attribution:  attribution,
+            detectRetina: true
+        }).addTo(map);
+
+        setTimeout(() => { if (map) fitToVulcani(); }, 100);
+    }, 50);
+};
+// permette di cambiare provider di mappa a runtime 
+
+
+
+// ══════════════════════════════════════════════════════════════
+//  VULCANI
+// ══════════════════════════════════════════════════════════════
+function aggiornaColore(zona, stato, magnitudo) { // aggiorna il colore del vulcano
+    if (!vulcaniData[zona] || !map || !isInitialized) return;
+
+    const v = vulcaniData[zona];
+    v.stato = stato;
+    if (magnitudo != null) v.magnitudo = magnitudo;
+
+    const colore  = v.colori[stato] || v.colori['NORMALE'];
+    const raggio  = markerRadius(stato);
+
+    // ── Marker ──────────────────────────────────────────────
+    if (v.marker) map.removeLayer(v.marker);
+
+    v.marker = L.circleMarker([v.lat, v.lng], {
+        radius:      raggio,
+        color:       colore,
+        fillColor:   colore,
+        fillOpacity: 0.9,
+        weight:      3
+    }).addTo(map);
+
+    const magTesto = (magnitudo != null && magnitudo > 0)
+        ? `<br>Ultima magnitudo: <b>M${Number(magnitudo).toFixed(1)}</b>`
+        : '';
+
+    v.marker.bindPopup(`
+        <div style="min-width:140px; font-size:1em;">
+            <b>${v.nome}</b><br>
+            Stato: <span style="color:${colore}; font-weight:bold;">${stato}</span>
+            ${magTesto}
+        </div>
+    `);
+
+    // ── Cerchio zona monitoraggio ────────────────────────────
+    if (v.circle) map.removeLayer(v.circle);
+
+    v.circle = L.circle([v.lat, v.lng], {
+        radius:      circleRadius(),
+        color:       colore,
+        fillColor:   colore,
+        fillOpacity: 0.08,
+        weight:      2,
+        interactive: false
+    }).addTo(map);
+}
+
+function inizializzaVulcani() {
+    if (!map || !isInitialized) return;
+    for (const zona in vulcaniData) {
+        aggiornaColore(zona, 'NORMALE', null);
+    }
+    console.log('Vulcani inizializzati');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  API ESPOSTE A PYTHON
+// ══════════════════════════════════════════════════════════════
+window.aggiornaStatoVulcano = function(zona, stato, magnitudo) {
+    if (!map || !isInitialized) {
+        const iv = setInterval(() => {
+            if (map && isInitialized) {
+                clearInterval(iv);
+                aggiornaColore(zona, stato, magnitudo);
+            }
+        }, 100);
+        setTimeout(() => clearInterval(iv), 5000);
+        return;
+    }
+    aggiornaColore(zona, stato, magnitudo);
+};
+
+window.refreshMapView = function() {
+    if (map && isInitialized) {
+        setTimeout(() => {
+            map.invalidateSize();
+            fitToVulcani();
+        }, 100);
+    }
+};
+
+window.zoomToVulcano = function(zona) { // centra la mappa su un vulcano specifico e apre il pop up informativo
+    if (!map || !isInitialized) return; // se la mappa non esiste o non è stata inizializzata esce senza fare nulla
+    const v = vulcaniData[zona]; // recupera i dati dal vulcano
+    if (!v) return;
+    map.flyTo([v.lat, v.lng], 13, {  // sposta la mappa sulle coordinate del vulcano
+        animate: true,
+        duration: 1.2
+    });
+    // Apre anche il popup del marker
+    if (v.marker) { // se esiste la posizione del vulcano 
+        setTimeout(() => v.marker.openPopup(), 1300);
+    }
+};
+
+window.zoomToAll = function() {
+    if (!map || !isInitialized) return;
+    fitToVulcani();
+};
+
+// ══════════════════════════════════════════════════════════════
+//  AVVIO
+// ══════════════════════════════════════════════════════════════
+(function() {
+    function start() {
+        initMap();
+        setTimeout(inizializzaVulcani, 200);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+
+    window.addEventListener('resize', handleResize);
+})();
+</script>
+</body>
+</html>

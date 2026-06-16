@@ -1,0 +1,28 @@
+{
+  "provider": "ingv",
+  "tile_layers": {
+    "oms": {
+      "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "attribution": "&copy; OpenStreetMap contributors"
+    },
+    "oms_gray":{
+    "url": "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png",
+    "attribution": "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap contributors"
+    },
+    "ingv": {
+      "url": "https://mapserver.ov.ingv.it/campania_earth/{z}/{x}/{y}.png",
+      "minZoom": 8,
+      "maxZoom": 15, 
+      "attribution": "&copy; UF1 e Laboratorio di Geomatica e Cartografia"
+    },
+    "ingv_gray": {
+      "url": "https://mapserver.ov.ingv.it/campania_gray/{z}/{x}/{y}.png", 
+      "minZoom":8,
+      "maxZoom":14,
+      "attribution": "&copy; UF1 e Laboratorio di Geomatica e Cartografia"
+    }
+  },
+  
+  "default_center": [40.85, 14.25],
+  "default_zoom": 9
+}

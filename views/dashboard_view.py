@@ -74,14 +74,21 @@ class DashboardView(QMainWindow):
         self.controller.map_service.set_webview(self.map_widget.webview)
         
         # Layout ratios
+        # if self.ui_scale >= 2.5:
+        #     ratio_left, ratio_right = 4, 6
+        # elif self.ui_scale >= 1.8:
+        #     ratio_left, ratio_right = 4, 6
+        # elif self.ui_scale >= 1.5:
+        #     ratio_left, ratio_right = 5, 5 #5:5
+        # else:
+        #     ratio_left, ratio_right = 6, 4 #6:4
+        # Layout ratios - mappa e log sempre 50:50
         if self.ui_scale >= 2.5:
-            ratio_left, ratio_right = 4, 6
-        elif self.ui_scale >= 1.8:
-            ratio_left, ratio_right = 4, 6
+         ratio_left, ratio_right = 4, 6
         elif self.ui_scale >= 1.5:
-            ratio_left, ratio_right = 5, 5 #5:5
+         ratio_left, ratio_right = 5, 5
         else:
-            ratio_left, ratio_right = 6, 4 #6:4
+         ratio_left, ratio_right = 5, 5  # mai più largo dei log
 
         base_font_px = max(12, int(14 * self.ui_scale))
         self.setStyleSheet(
@@ -114,8 +121,8 @@ class DashboardView(QMainWindow):
     # ─── UI UPDATE METHODS ───────────────────────────────────
     def update_ui(self):
         """Aggiorna tutta l'UI in base al model"""
-        self.header.update_state(self.controller.model.status.value, 
-                                 self.controller.model.get_status_color())
+        # self.header.update_state(self.controller.model.status.value, 
+        #                          self.controller.model.get_status_color())
         self._update_logs()
     
     def _update_logs(self):

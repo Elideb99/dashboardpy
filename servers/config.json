@@ -1,0 +1,23 @@
+{
+    "data_source": "serenade",
+
+    "kafka": {
+        "enabled": false,
+        "topic": "events",
+        "server": "localhost:9092"
+    },
+
+    "serenade": {
+        "enabled": true,
+        "base_url": "http://testenade.int.ov.ingv.it",
+        "endpoint": "/events",
+        "refresh": 10,
+
+        "params": {
+            "type": "earthquake",
+            "date": "after:2026-06-22T00:00:00",
+            "level": "ge:100"
+        }
+    }
+}
+

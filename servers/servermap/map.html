@@ -93,10 +93,11 @@ html, body {
 <div id="map"></div>
 <div class="legend">
     <h4>Stato Attività</h4>
-    <div class="row"><div class="color-box" style="background:#2e7d32;"></div> Normale (M &lt; 2.0)</div>
-    <div class="row"><div class="color-box" style="background:#ff9800;"></div> Attenzione (M 2.0–3.5)</div>
-    <div class="row"><div class="color-box" style="background:#d32f2f;"></div> Allarme (M ≥ 3.5)</div>
-    <div class="row"><div class="color-box" style="background:#ef6c00;"></div> Sciame Attivo</div>
+    <div class="row"><div class="color-box" style="background:#4caf50;"></div> M &lt; 1.0</div>
+    <div class="row"><div class="color-box" style="background:#ffeb3b;"></div> M 1.0–2.0</div>
+    <div class="row"><div class="color-box" style="background:#ff9800;"></div> M 2.0–3.5</div>
+    <div class="row"><div class="color-box" style="background:#d32f2f;"></div> M ≥ 3.5</div>
+    <div class="row"><div class="color-box" style="background:#9C27B0;"></div> Centro vulcano</div>
 </div>
 
 <script>
@@ -139,12 +140,34 @@ function fitPadding() {
  * va bene; su schermi enormi si può abbassare per mostrare
  * il contesto geografico più ampio.
  */
+// function initialZoom() {
+//     const w = window.innerWidth;
+//     if (w >= 5000) return 10;
+//     if (w >= 3200) return 11;
+//     if (w >= 2000) return 11;
+//     if (w >= 1200) return 12;
+//     return 11;  // buon compromesso per tutti
+// }
+
 function initialZoom() {
     const w = window.innerWidth;
-    if (w >= 5000) return 8;
-    if (w >= 3200) return 9;
-    if (w >= 2000) return 9;
-    return 10;
+    // Zoom molto alti per vedere i dettagli dei vulcani
+    if (w >= 5000) return 12;
+    if (w >= 3200) return 13;
+    if (w >= 2000) return 13;
+    if (w >= 1200) return 14;   // molto vicino su desktop
+    return 13;                  // mobile
+}
+
+// E modifica anche il fitToVulcani per non allontanarsi troppo
+function fitToVulcani() {
+    if (!map) return;
+    const bounds = getVulcaniBounds();
+    // Usa maxZoom per evitare che si allontani troppo
+    map.fitBounds(bounds, {
+        padding: [30, 30],
+        maxZoom: initialZoom()  // Usa lo stesso zoom iniziale
+    });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -201,10 +224,10 @@ function getVulcaniBounds() { // restituisce array di coordinate [[lat,lang], [l
     return Object.values(vulcaniData).map(v => [v.lat, v.lng]);
 }
 
-function fitToVulcani() { // zoom automatico fichè tutti e 3 i vulcani siano visibili
-    if (!map) return;
-    map.fitBounds(getVulcaniBounds(), fitPadding());
-}
+// function fitToVulcani() { // zoom automatico fichè tutti e 3 i vulcani siano visibili
+//     if (!map) return;
+//     map.fitBounds(getVulcaniBounds(), fitPadding());
+// }
 
 function handleResize() {
     if (!map) return;
@@ -289,6 +312,7 @@ function aggiornaColore(zona, stato, magnitudo) { // aggiorna il colore del vulc
     if (magnitudo != null) v.magnitudo = magnitudo;
 
     const colore  = v.colori[stato] || v.colori['NORMALE'];
+    const coloreMarker = '#9C27B0';
     const raggio  = markerRadius(stato);
 
     // ── Marker ──────────────────────────────────────────────
@@ -296,30 +320,31 @@ function aggiornaColore(zona, stato, magnitudo) { // aggiorna il colore del vulc
 
     v.marker = L.circleMarker([v.lat, v.lng], {
         radius:      raggio,
-        color:       colore,
-        fillColor:   colore,
+        color:       coloreMarker,
+        fillColor:   coloreMarker,
         fillOpacity: 0.9,
         weight:      3
     }).addTo(map);
 
-    const magTesto = (magnitudo != null && magnitudo > 0)
+    const magTesto = (magnitudo !== undefined && magnitudo !== null)
         ? `<br>Ultima magnitudo: <b>M${Number(magnitudo).toFixed(1)}</b>`
         : '';
 
     v.marker.bindPopup(`
         <div style="min-width:140px; font-size:1em;">
-            <b>${v.nome}</b><br>
-            Stato: <span style="color:${colore}; font-weight:bold;">${stato}</span>
+            <b>${v.nome}</b>
             ${magTesto}
         </div>
     `);
 
-    // ── Cerchio zona monitoraggio ────────────────────────────
+    //<br> Stato: <span style="color:${coloreMarker}; font-weight:bold;">${stato}</span>
+
+    //── Cerchio zona monitoraggio ────────────────────────────
     if (v.circle) map.removeLayer(v.circle);
 
     v.circle = L.circle([v.lat, v.lng], {
         radius:      circleRadius(),
-        color:       colore,
+        color:      '#9C27B0',
         fillColor:   colore,
         fillOpacity: 0.08,
         weight:      2,
@@ -379,6 +404,71 @@ window.zoomToAll = function() {
     if (!map || !isInitialized) return;
     fitToVulcani();
 };
+
+// ══════════════════════════════════════════════════════════════
+//  EVENTI SISMICI – pallini proporzionali alla magnitudo
+// ══════════════════════════════════════════════════════════════
+const eventiLayer = [];
+
+function magnitudo2raggio(mag) {
+    // scala quadratica: M0=3px M1=5px M2=10px M3=19px M4=32px M5+=40px
+    if (mag === null || mag === undefined) return 3;
+    return Math.min(3 + mag * mag * 1.8, 40);
+}
+
+function magnitudo2colore(mag) {
+    if (mag === null || mag === undefined) return '#aaaaaa';
+    if (mag >= 3.5) return '#d32f2f';  // rosso
+    if (mag >= 2.0) return '#ff9800';  // arancione
+    if (mag >= 1.0) return '#ffeb3b';  // giallo
+    return '#4caf50';                   // verde
+}
+
+window.aggiungiEvento = function(lat, lng, mag, data, qualita) {
+    if (!map || !isInitialized) return;
+
+    const raggio = magnitudo2raggio(mag);
+    const colore = magnitudo2colore(mag);
+    const magStr = (mag !== null && mag !== undefined)
+        ? `M${Number(mag).toFixed(1)}`
+        : 'M n.d.';
+
+    const pallino = L.circleMarker([lat, lng], {
+        radius:      raggio,
+        color:       colore,
+        fillColor:   colore,
+        fillOpacity: 0.85,
+        weight:      0        // nessun bordo
+    }).addTo(map);
+
+    pallino.bindPopup(`
+        <div style="min-width:130px; font-size:0.95em;">
+            <b>${magStr}</b><br>
+            ${data}<br>
+            Qualità: ${qualita}<br>
+            <small>(${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)})</small>
+        </div>
+    `);
+
+    eventiLayer.push(pallino);
+};
+
+window.clearEventi = function() {
+    eventiLayer.forEach(c => map.removeLayer(c));
+    eventiLayer.length = 0;
+};
+
+window.aggiungiEventiBatch = function(eventi) {
+    if (!map || !isInitialized) return;
+    eventi.forEach(function(e) {
+        aggiungiEvento(e.lat, e.lng, e.mag, e.data, e.qualita);
+    });
+};
+
+
+
+
+
 
 // ══════════════════════════════════════════════════════════════
 //  AVVIO

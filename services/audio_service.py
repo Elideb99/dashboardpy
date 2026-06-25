@@ -6,7 +6,7 @@ from PyQt6.QtCore import QUrl
 
 class AudioService: #classe per gestire la riproduzione audio 
     def __init__(self):
-        self.wav_path = os.path.join(os.path.dirname(__file__), "..", "alarm_dec.wav") # costruisce il percorso del file audio
+        self.wav_path = os.path.join(os.path.dirname(__file__), "..", "services", "alarm_dec.wav") # costruisce il percorso del file audio
         self._audio_process = None # inizializza il processo audio a none
         self.audio_available = False # flag per indicare se l'audio è disponibile
         

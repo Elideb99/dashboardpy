@@ -10,5 +10,10 @@ def avvia_server(porta=8000):
         httpd.serve_forever()
 
 def start_background_server(porta=8000):
-    thread = threading.Thread(target=avvia_server, args=(porta,), daemon=True)
-    thread.start()
+    try:
+        thread = threading.Thread(target=avvia_server, args=(porta,), daemon=True)
+        thread.start()
+        print("SERVER IN ASCOLTO SU 8000")
+
+    except Exception as e:
+        print("ERRORE SERVER:", e)

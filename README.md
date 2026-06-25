@@ -235,6 +235,309 @@ Tre funzioni gestiscono la scala su schermi diversi:
 Quando la finestra viene ridimensionata, handleResize() chiama map.invalidateSize() per forzare Leaflet a ricalcolare il layout, poi fitVultuni() per riadattare la vista, e infine aggiorna il raggio di tutti i marker già disegnati con setRadius().
 
 
+## KAFKA
+Apache Kafka è una piattaforma di messaggistica distribuita progettata per gestire grandi quantità di dati in tempo reale.
+E' un sistema "publish/subscribe":
+
+- Un'applicazione produce messaggi(Producer)
+- Kafka li salva
+- Una o più applicazioni consumano quei messaggi(Consumer)
+
+Schema semplificato:
+
+Producer
+    |
+    v
++---------+
+|  Kafka  |
++---------+
+    |
+    +------> Consumer A
+    |
+    +------> Consumer B
+
+Il producer pubblica un evento: "Nuovo dato sismico ricevuto" e Kafka lo salva e lo distribuisce a chi è interessato.
+
+Nel nostro caso sarebbe: 
+
+Sensore
+   |
+   v
+ Kafka
+   |
+   +----> Dashboard
+   |
+   +----> Sistema allarmi
+   |
+   +----> Archivio dati
+
+è una comunicazione asincrona.
+
+Nel nostro caso la dashboard non "chiede" dati ma rimane in ascolto:
+**wrk.process_messages(...)** 
+e quando arriva un nuovo messaggio:
+**kernel(msg)** viene eseguito automaticamente.
+
+Kafka è più vicino a una radio che trasmette continuamente dati sismici.
+
+## KAFKA-TOPIC
+I messaggi vengono organizzati in topic. 
+Nel nostro caso abbiamo: 
+
+wrk.process_messages(
+    'waves.flegrei.IV.CSTH',
+    on_data=kernel
+)
+
+dove waves.flegrei.IV.CSTH è il topic ed è una cosa del tipo: 
+
+Topic: waves.flegrei.IV.CSTH
+
+Messaggio 1
+Messaggio 2
+Messaggio 3
+...
+
+Ogni volta che arriva un nuovo messaggio sul topic, Kafka lo rende disponibile ai consumer.
+
+## KAFKA- BROKER
+Kafka gira su uno o più server chiamati broker. 
+Ad esempio nel codice abbiamo:
+
+wrk.kafka_connect(
+    ['kafkacluster.int.ov.ingv.it:9095']
+)
+significa che è una situazione del tipo: "Connettiti al broker Kafka che si trova all'indirizzo kafkacluster.int.ov.ingv.it sulla porta 9095.
+
+Lo schema sarebbe:
+
+Tua Applicazione
+       |
+       |
+       v
+kafkacluster.int.ov.ingv.it:9095
+       |
+       v
+     Kafka
+
+## PRODUCER-CONSUMER
+- Producer: invia dati a Kafka ad esempio: 
+
+producer.send(
+    "waves.flegrei.IV.CSTH",
+    valore
+)
+
+- Consumer: legge i dati da Kafka ad esempio:
+
+wrk.process_messages(
+    'waves.flegrei.IV.CSTH',
+    on_data=kernel
+) 
+sto creando un consumer
+
+**Cosa succede nella mia applicazione quando eseguo wrk.kafka_connect(...)?**
+Avviene:
+1. Apertura della connessione TCP al broker.
+2. Negoziazione del protocollo Kafka.
+3. Recupero dei metadati del cluster.
+4. Preparazione del consumer.
+
+Dopo: wrk.process_messages(...) fa qualcosa come:
+
+Attendi messaggio
+      |
+      v
+Ricevuto?
+      |
+     SI
+      |
+      v
+Esegui callback kernel()
+      |
+      v
+Attendi prossimo messaggio
+
+Il callback kernel: 
+
+def kernel(msg: Message):
+    print(msg.value)
+
+ogni messaggio ricevuto genera: 
+Kafka --> process_messages()
+             |
+             v
+         kernel(msg)
+
+quindi: print(msg.value) stampa il contenuto ricevuto 
+
+## OFFSET 
+
+Kafka mantiene un indice chiamato offset.
+Ad esempio:
+Topic
+
+Offset 0 -> msg A
+Offset 1 -> msg B
+Offset 2 -> msg C
+Offset 3 -> msg D
+
+Quando il consumer legge:
+A
+B
+C
+
+Kafka memorizza:
+Ultimo offset letto = 2
+Alla riconnessione riparte da lì.
+
+## GRUPPI
+Più consumer possono lavorare insieme se appartengono allo stesso gruppo.
+Topic
+   |
+   +--> Consumer 1
+   |
+   +--> Consumer 2
+
+ad esempio: group_id = "mygroup" e Kafka divide il lavoro.
+
+Se appartengono a gruppi diversi: 
+groupA
+groupB
+
+entrambi ricevono tutti i messaggi.
+
+Nel mio caso la GUI deve continuare a rispondere mentre il consumer rimane in ascolto continuo. Per questo motivo normalmente si usa:
+
+Thread GUI (Qt)
+        +
+Thread Kafka
+
+dove:
+Thread Kafka-> riceve i messaggi 
+Thread Qt-> aggiorna l'interfaccia,mappe,grafici,audio
+e i due comunicano tramite segnali Qt(pyqtSignal).
+
+## Struttura con kafka
+Kafka
+ |
+ |
+Controller.on_kafka_message()
+ |
+ |
+model.add_log()
+model.status=
+ |
+ |
+View aggiornata automaticamente
+
+
+## Flusso attuale dei thread
+
+MAIN THREAD (GUI)
+├── start_background_server() → Thread separato (daemon)
+├── kafka_thread.start() → Avvia thread Kafka
+├── app.exec() → Loop eventi Qt
+│   ├── Gestisce click bottoni (simulate_event, reset, etc.)
+│   ├── Riceve segnali da Kafka via pyqtSignal
+│   └── Aggiorna UI
+│
+KAFKA THREAD
+├── run() → Eseguito nel thread separato
+├── kafka_connect() → Connessione al broker
+├── process_messages() → Loop bloccante di ricezione
+│   ├── Riceve messaggio
+│   ├── on_message() → Emette segnale
+│   └── [continua a ricevere]
+│
+BACKGROUND THREAD (HTTP Server)
+├── avvia_server() → Server HTTP in background
+└── [sempre attivo]
+
+
+Ci sta una struttura a due thread principali:
+1. Thread principale Qt (GUI thread / Main Thread)
+2. Thread Kafka dedicato (QThread)
+
+L'idea è: la GUI non deve mai bloccarsi mentre Kafka aspetta messaggi. Quindi sposti il consumer Kafka in un thread separato e comunichi con la GUI tramite pyqtSignal.
+
+1) Quando si avvia l'applicazione PyQt nasce automaticamente il main thread:
+
+MAIN THREAD
+│
+├── QApplication
+│
+├── Window (View)
+│
+├── SystemController
+│
+└── Model
+
+Questo thread gestisce:
+
+-finestre
+-pulsanti
+-mappe
+-aggiornamento grafico
+-eventi utente
+
+2) Creazione del thread Kafka -> gira in background e ascolta continuamente i messaggi Kafka senza bloccare la GUI
+
+
+Kafka Thread
+      |
+      |
+      | signal
+      |
+      v
+GUI Thread
+
+più nello specifico: 
+
+KafkaWorker
+     |
+     |
+emit(msg)
+     |
+     |
+     v
+SystemController.on_kafka_message()
+
+*on_kafka_message()* viene eseguito nel thread del controller e non nel thread Kafka. Questo è il meccanismo thread-safe di Qt.
+
+
+## SERVERS - Struttura
+
+servers/
+│
+├── config.json              # scelta globale
+│
+├── serverkafka/
+│   ├── kafka.py
+│   └── thread.py
+│
+├── serenade/
+│   ├── serenade.py
+│   └── thread.py
+│
+└── servermap/
+    ├── map_config.json
+    ├── map.html
+    └── server.py
+
+    
+Come funziona:
+1. serenade.py - SerenadeWorker(QThread) che ogni n secondi fa un GET a Serenade, confronta gli event_id già visti e emette solo i nuovi eventi tramite signal (proprio come KafkaWorker)
+
+2. parser.py - funzione parse_evento_serenade(event_id, event_data) traduce il json di Serenade nello stesso dict che già usa on_kafka_message nel controller, così non è necessario toccare il controller.
+
+Le zone supportate dall'URL sono flegrei,vesuvio,ischia - il worker le interroga tutte e tre in sequenza 
+
+
+
+
+
+
 
 
  

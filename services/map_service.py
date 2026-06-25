@@ -13,15 +13,24 @@ class MapService:
     
     def set_ready(self, ready):
         self.map_ready = ready
-    
+
+
     def load_configuration(self):
-        config_path = os.path.join(os.path.dirname(__file__), "..", "map_config.json") # costruisce il percorso del file
-        try:
-            with open(config_path, "r", encoding="utf-8") as f: # apre il file json in modalità lettura
-                return json.load(f)
-        except Exception as e:
-            print(f"Errore config mappa: {e}")
-            return None
+     # Percorso relativo dalla posizione del file corrente
+     current_file = os.path.abspath(__file__)
+     current_dir = os.path.dirname(current_file)
+    
+     # Vai a servers/servermap/ (risali di un livello)
+     config_path = os.path.join(current_dir, "..", "servers", "servermap", "map_config.json")
+     config_path = os.path.normpath(config_path)  # Normalizza il percorso
+        
+     try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            print("✅ Config caricata con successo!")
+            return json.load(f)
+     except Exception as e:
+        print(f"Errore config mappa: {e}")
+        return None
     
     def apply_config(self):  # carica la configurazione 
         config = self.load_configuration()
@@ -93,3 +102,21 @@ class MapService:
                     setTimeout(function() { map.invalidateSize(); }, 100);
                 }
             """)
+
+    # def add_evento(self, lat, lng, mag, data, qualita):
+    #  if not self.map_ready or not self.webview:
+    #     return
+    #  js = f'aggiungiEvento({lat}, {lng}, {mag}, "{data}", "{qualita}");'
+    #  self.webview.page().runJavaScript(js)
+    def add_eventi_batch(self, eventi: list):
+     """Passa tutti gli eventi in una sola chiamata JS."""
+     if not self.map_ready or not self.webview:
+        return
+     import json
+     js = f'aggiungiEventiBatch({json.dumps(eventi)});'
+     self.webview.page().runJavaScript(js)
+
+    def clear_eventi(self):
+     if self.map_ready and self.webview:
+        self.webview.page().runJavaScript('clearEventi();')
+    

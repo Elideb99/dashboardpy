@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QFrame, QVBoxLayout
+import os
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QUrl
 
@@ -21,32 +22,65 @@ class MapWidget:
     def scale(self, v):
         return max(1, int(v * self.ui_scale))
 
+    # def create(self):
+    #     self.frame = QFrame()
+    #     self.frame.setFrameShape(QFrame.Shape.Box)
+    #     self.frame.setStyleSheet("border: 1px solid #ccc;")
+
+    #     layout   = QVBoxLayout()
+    #     layout.setContentsMargins(0, 0, 0, 0)   # niente padding interno
+    #     self.webview = QWebEngineView()
+    #     # self.webview.setUrl(QUrl("http://127.0.0.1:8000/map.html"))
+    #     # self.webview.settings().setAttribute(
+    #     #     self.webview.settings().WebAttribute.WebGLEnabled, False
+    #     # )
+    #     base_dir = os.path.dirname(os.path.abspath(__file__))
+    #     map_path = os.path.join(base_dir, "servers" ,"servermap", "map.html")
+    #     self.webview.setUrl(QUrl.fromLocalFile(map_path))
+
+    #     self.webview.loadFinished.connect(self._on_load_finished)
+    #     layout.addWidget(self.webview)
+    #     self.frame.setLayout(layout)
+
+    #     self._apply_min_height()
+
     def create(self):
-        self.frame = QFrame()
-        self.frame.setFrameShape(QFrame.Shape.Box)
-        self.frame.setStyleSheet("border: 1px solid #ccc;")
+     self.frame = QFrame()
+     self.frame.setFrameShape(QFrame.Shape.Box)
+     self.frame.setStyleSheet("border: 1px solid #ccc;")
+     self.frame.setSizePolicy(
+        QSizePolicy.Policy.Expanding,
+        QSizePolicy.Policy.Expanding   # ← si espande in altezza
+    )
 
-        layout   = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)   # niente padding interno
-        self.webview = QWebEngineView()
-        self.webview.setUrl(QUrl("http://127.0.0.1:8000/map.html"))
-        self.webview.settings().setAttribute(
-            self.webview.settings().WebAttribute.WebGLEnabled, False
-        )
-        self.webview.loadFinished.connect(self._on_load_finished)
-        layout.addWidget(self.webview)
-        self.frame.setLayout(layout)
+     layout = QVBoxLayout()
+     layout.setContentsMargins(0, 0, 0, 0)
+     self.webview = QWebEngineView()
+    
+     # Usa il server HTTP invece del file locale
+     self.webview.setUrl(QUrl("http://127.0.0.1:8000/map.html"))
+     self.webview.settings().setAttribute(
+        self.webview.settings().WebAttribute.WebGLEnabled, False
+     )
+    
+     self.webview.loadFinished.connect(self._on_load_finished)
+     layout.addWidget(self.webview)
+     self.frame.setLayout(layout)
 
-        self._apply_min_height()
+     self._apply_min_height()
 
+
+    # def _apply_min_height(self):
+    #     """
+    #     Altezza minima = BASE * ui_scale, con un tetto ragionevole
+    #     in modo che su schermi 8K non occupi l'intera display.
+    #     """
+    #     h = min(int(self._BASE_MIN_HEIGHT * self.ui_scale), 1600)
+    #     self.frame.setMinimumHeight(h)
 
     def _apply_min_height(self):
-        """
-        Altezza minima = BASE * ui_scale, con un tetto ragionevole
-        in modo che su schermi 8K non occupi l'intera display.
-        """
-        h = min(int(self._BASE_MIN_HEIGHT * self.ui_scale), 1600)
-        self.frame.setMinimumHeight(h)
+     h = min(int(200 * self.ui_scale), 1600)  # era 400, ora 200
+     self.frame.setMinimumHeight(h)
 
     def update_height(self, ui_scale):
         self.ui_scale = ui_scale

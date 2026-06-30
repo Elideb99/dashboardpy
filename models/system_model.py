@@ -165,5 +165,18 @@ class SystemModel:
         'rms':        rms,
         'gap_azimutale': gap,
     }
+
+
+    # in system_model.py
+    def add_log_batch(self, zona: str, messaggi: list[str]):
+     """Aggiunge più righe in un colpo solo, senza aggiornare la UI ad ogni riga."""
+     if zona not in self._tab_logs:
+        zona = "GENERALE"
+     self._tab_logs[zona].extend(messaggi)
+     # tieni solo gli ultimi N messaggi per non riempire la RAM
+     MAX = 500
+     if len(self._tab_logs[zona]) > MAX:
+        self._tab_logs[zona] = self._tab_logs[zona][-MAX:]
+     self.notify_observers() #metodo per aggiornare e mostrare i log 
     
 

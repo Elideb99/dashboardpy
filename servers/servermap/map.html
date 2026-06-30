@@ -97,7 +97,7 @@ html, body {
     <div class="row"><div class="color-box" style="background:#ffeb3b;"></div> M 1.0–2.0</div>
     <div class="row"><div class="color-box" style="background:#ff9800;"></div> M 2.0–3.5</div>
     <div class="row"><div class="color-box" style="background:#d32f2f;"></div> M ≥ 3.5</div>
-    <div class="row"><div class="color-box" style="background:#9C27B0;"></div> Centro vulcano</div>
+    <div class="row"><div class="color-box" style="background:#9C27B0;"></div> Area vulcano</div>
 </div>
 
 <script>
@@ -183,7 +183,9 @@ const vulcaniData = { /* coordinate di ogni vulcano */
         nome: 'Vesuvio',
         lat: 40.8214, lng: 14.4265,
         stato: 'NORMALE', magnitudo: 0,
-        marker: null, circle: null,
+        //marker: null,
+         circle: null,
+         fill:false,
         colori: {
             'NORMALE':    '#2e7d32',
             'ATTENZIONE': '#ff9800',
@@ -263,6 +265,13 @@ function initMap() {
             inertiaMaxSpeed:     1500
         });
 
+        map.createPane('vulcaniPane');
+map.getPane('vulcaniPane').style.zIndex = 650;  // sempre sopra i pallini eventi
+
+map.createPane('eventiPane');
+map.getPane('eventiPane').style.zIndex = 400;   // sotto i vulcani
+
+
         if (window.innerWidth <= 768) {
             map.zoomControl.setPosition('bottomright');
         }
@@ -316,14 +325,15 @@ function aggiornaColore(zona, stato, magnitudo) { // aggiorna il colore del vulc
     const raggio  = markerRadius(stato);
 
     // ── Marker ──────────────────────────────────────────────
-    if (v.marker) map.removeLayer(v.marker);
+    /*if (v.marker) map.removeLayer(v.marker);
 
     v.marker = L.circleMarker([v.lat, v.lng], {
         radius:      raggio,
         color:       coloreMarker,
         fillColor:   coloreMarker,
         fillOpacity: 0.9,
-        weight:      3
+        weight:      3,
+        pane:       'vulcaniPane'
     }).addTo(map);
 
     const magTesto = (magnitudo !== undefined && magnitudo !== null)
@@ -335,21 +345,90 @@ function aggiornaColore(zona, stato, magnitudo) { // aggiorna il colore del vulc
             <b>${v.nome}</b>
             ${magTesto}
         </div>
-    `);
+    `);*/
 
     //<br> Stato: <span style="color:${coloreMarker}; font-weight:bold;">${stato}</span>
 
     //── Cerchio zona monitoraggio ────────────────────────────
-    if (v.circle) map.removeLayer(v.circle);
+    /*if (v.circle) map.removeLayer(v.circle);
+    if (v.circleFill) map.removeLayer(v.circleFill);
+
+    const magTesto = (magnitudo !== undefined && magnitudo !== null)
+    ? `<br>Ultima magnitudo: <b>M${Number(magnitudo).toFixed(1)}</b>`
+    : '';
+
+
+// Cerchio fill interno — NON interattivo, solo visivo
+    v.circleFill = L.circle([v.lat, v.lng], {
+     radius:      circleRadius(),
+     color:       'transparent',
+     fillColor:   colore,
+     fillOpacity: 0.08,
+     weight:      0,
+     interactive: false
+    }).addTo(map);
 
     v.circle = L.circle([v.lat, v.lng], {
         radius:      circleRadius(),
         color:      '#9C27B0',
-        fillColor:   colore,
-        fillOpacity: 0.08,
-        weight:      2,
-        interactive: false
+        fill:   false,
+        weight:      6,
+        interactive: true
     }).addTo(map);
+
+    v.circle.bindPopup(`
+    <div style="min-width:140px; font-size:1em;">
+        <b>${v.nome}</b>
+        ${magTesto}
+    </div>
+`);*/
+
+if (v.circle) map.removeLayer(v.circle);
+
+const magTesto = (magnitudo !== undefined && magnitudo !== null)
+    ? `<br>Ultima magnitudo: <b>M${Number(magnitudo).toFixed(1)}</b>`
+    : '';
+
+// Genera i punti di un cerchio approssimato come poligono
+function generateRing(lat, lng, outerR, innerR, steps = 64) {
+    const toRad = Math.PI / 180;
+    const latR  = outerR / 111320;
+    const lngR  = outerR / (111320 * Math.cos(lat * toRad));
+    const latRi = innerR / 111320;
+    const lngRi = innerR / (111320 * Math.cos(lat * toRad));
+
+    const outer = [], inner = [];
+    for (let i = 0; i < steps; i++) {
+        const a = (2 * Math.PI * i) / steps;
+        outer.push([lat + latR  * Math.sin(a), lng + lngR  * Math.cos(a)]);
+        inner.push([lat + latRi * Math.sin(a), lng + lngRi * Math.cos(a)]);
+    }
+    return [outer, inner.reverse()]; // il buco va in senso opposto
+}
+
+// v.circle = L.polygon(
+//     generateRing(v.lat, v.lng, circleRadius(), circleRadius() * 0.82),
+//     {
+//         color:       '#9C27B0',
+//         fillColor:   '#9C27B0',
+//         fillOpacity: 0.15,
+//         weight:      1.5,
+//         interactive: true
+//     }
+// ).addTo(map);
+
+// v.circle.bindPopup(`
+//     <div style="min-width:140px; font-size:1em;">
+//         <b>${v.nome}</b>
+//         ${magTesto}
+//     </div>
+// `);
+
+// v.circle.on('click', function() {
+//     window.location.href = 'app://tab/' + zona.replace(/ /g, '-');
+// })
+
+
 }
 
 function inizializzaVulcani() {
@@ -395,9 +474,9 @@ window.zoomToVulcano = function(zona) { // centra la mappa su un vulcano specifi
         duration: 1.2
     });
     // Apre anche il popup del marker
-    if (v.marker) { // se esiste la posizione del vulcano 
-        setTimeout(() => v.marker.openPopup(), 1300);
-    }
+    // if (v.marker) { // se esiste la posizione del vulcano 
+    //     setTimeout(() => v.marker.openPopup(), 1300);
+    // }
 };
 
 window.zoomToAll = function() {
@@ -408,7 +487,7 @@ window.zoomToAll = function() {
 // ══════════════════════════════════════════════════════════════
 //  EVENTI SISMICI – pallini proporzionali alla magnitudo
 // ══════════════════════════════════════════════════════════════
-const eventiLayer = [];
+/*const eventiLayer = [];
 
 function magnitudo2raggio(mag) {
     // scala quadratica: M0=3px M1=5px M2=10px M3=19px M4=32px M5+=40px
@@ -438,7 +517,8 @@ window.aggiungiEvento = function(lat, lng, mag, data, qualita) {
         color:       colore,
         fillColor:   colore,
         fillOpacity: 0.85,
-        weight:      0        // nessun bordo
+        weight:      0   ,     // nessun bordo
+        pane:      'eventiPane'
     }).addTo(map);
 
     pallino.bindPopup(`
@@ -465,7 +545,161 @@ window.aggiungiEventiBatch = function(eventi) {
     });
 };
 
+window.currentFilter = "24h";
 
+window.setTimeFilter = function(value) {
+    window.currentFilter = value;
+    applyFilter();
+};*/
+
+// ══════════════════════════════════════════════════════════════
+//  EVENTI SISMICI – pallini proporzionali alla magnitudo
+// ══════════════════════════════════════════════════════════════
+
+// Array master: contiene TUTTI gli eventi ricevuti (mai svuotato dal filtro)
+const eventiMaster = [];
+// Array dei marker attualmente sulla mappa
+const eventiLayer  = [];
+
+window.currentFilter = "24h";
+
+// function magnitudo2raggio(mag) {
+//     if (mag === null || mag === undefined) return 3;
+//     return Math.min(3 + mag * mag * 1.8, 40);
+// }
+
+function magnitudo2raggio(mag) {
+
+    if (mag === null || mag === undefined) {
+        return 8;
+    }
+
+    mag = Number(mag);
+
+    // raggio minimo visibile
+    const base = 8;
+
+    // crescita con magnitudo
+    const scala = mag * mag * 2.5;
+
+    // limite massimo
+    return Math.min(base + scala, 45);
+}
+
+function magnitudo2colore(mag) {
+    if (mag === null || mag === undefined) return '#aaaaaa';
+    if (mag >= 3.5) return '#d32f2f';
+    if (mag >= 2.0) return '#ff9800';
+    if (mag >= 1.0) return '#ffeb3b';
+    return '#4caf50';
+}
+
+// function filterDelta(filterKey) {
+//     const MS = {
+//         "24h":   24 * 3600 * 1000,
+//         "48h":   48 * 3600 * 1000,
+//         "7gg":    7 * 86400 * 1000,
+//         "14gg":  14 * 86400 * 1000,
+//         "1mese": 30 * 86400 * 1000,
+//     };
+//     return MS[filterKey] || MS["24h"];
+// }
+
+function filterDelta(filterKey) {
+    if (filterKey === "all") {
+        return Infinity;   
+    }
+    const MS = {
+        "24h":   24 * 3600 * 1000,
+        "48h":   48 * 3600 * 1000,
+        "7gg":    7 * 86400 * 1000,
+        "14gg":  14 * 86400 * 1000,
+        "1mese": 30 * 86400 * 1000,
+    };
+    return MS[filterKey] || MS["24h"];
+}
+
+function _disegnaEvento(e) {
+    const raggio = magnitudo2raggio(e.mag);
+    const colore = magnitudo2colore(e.mag);
+    const magStr = (e.mag !== null && e.mag !== undefined)
+        ? `M${Number(e.mag).toFixed(1)}`
+        : 'M n.d.';
+
+    const pallino = L.circleMarker([e.lat, e.lng], {
+        radius:      raggio,
+        color:       colore,
+        fillColor:   colore,
+        fillOpacity: 0.75,
+        weight:      1,
+        pane:        'eventiPane'
+    }).addTo(map);
+
+    pallino.bindPopup(`
+        <div style="min-width:130px; font-size:0.95em;">
+            <b>${magStr}</b><br>
+            ${e.data}<br>
+            Qualità: ${e.qualita}<br>
+            <small>(${Number(e.lat).toFixed(4)}, ${Number(e.lng).toFixed(4)})</small>
+        </div>
+    `);
+
+    eventiLayer.push(pallino);
+}
+
+function applyFilter() {
+    // 1. Rimuovi tutti i marker dalla mappa
+    eventiLayer.forEach(c => map && map.removeLayer(c));
+    eventiLayer.length = 0;
+
+    // 2. Calcola cutoff
+    const cutoff = Date.now() - filterDelta(window.currentFilter);
+
+    // 3. Ridisegna solo gli eventi che rientrano nel periodo
+    eventiMaster.forEach(function(e) {
+        let ts = null;
+        if (e.data) {
+            // accetta sia "2024-05-01T12:00:00" che "2024-05-01 12:00:00"
+            ts = Date.parse(e.data.replace(' ', 'T'));
+        }
+        // se la data non è parsabile mostriamo comunque l'evento
+        if (ts === null || isNaN(ts) || ts >= cutoff) {
+            _disegnaEvento(e);
+        }
+    });
+}
+
+// ── API esposte a Python ───────────────────────────────────────
+
+window.aggiungiEvento = function(lat, lng, mag, data, qualita) {
+    if (!map || !isInitialized) return;
+    const e = { lat, lng, mag, data, qualita };
+    eventiMaster.push(e);
+    // disegna solo se rientra nel filtro attivo
+    const cutoff = Date.now() - filterDelta(window.currentFilter);
+    let ts = data ? Date.parse(data.replace(' ', 'T')) : NaN;
+    if (isNaN(ts) || ts >= cutoff) {
+        _disegnaEvento(e);
+    }
+};
+
+window.clearEventi = function() {
+    eventiLayer.forEach(c => map && map.removeLayer(c));
+    eventiLayer.length  = 0;
+    eventiMaster.length = 0;   // svuota anche il master
+};
+
+window.aggiungiEventiBatch = function(eventi) {
+    if (!map || !isInitialized) return;
+    eventi.forEach(function(e) {
+        window.aggiungiEvento(e.lat, e.lng, e.mag, e.data, e.qualita);
+    });
+};
+
+window.setTimeFilter = function(value) {
+    window.currentFilter = value;
+    applyFilter();          // ridisegna con il nuovo cutoff
+};
 
 
 

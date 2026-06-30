@@ -1,14 +1,14 @@
 {
-    "data_source": "serenade",
+    "data_source": "kafka",
 
     "kafka": {
-        "enabled": false,
+        "enabled": true,
         "topic": "events",
         "server": "localhost:9092"
     },
 
     "serenade": {
-        "enabled": true,
+        "enabled": false,
         "base_url": "http://testenade.int.ov.ingv.it",
         "endpoint": "/events",
         "refresh": 10,
@@ -18,6 +18,19 @@
             "date": "after:2026-06-22T00:00:00",
             "level": "ge:100"
         }
+    },
+    "map_filters": {
+        "default": "all",
+        "options": [
+            { "key": "all", "label": "ALL" } ,
+            { "key": "24h",   "label": "24H"    },
+            { "key": "48h",   "label": "48H"    },
+            { "key": "7gg",   "label": "7GG"    },
+            { "key": "14gg",  "label": "14GG"   },
+            { "key": "1mese", "label": "1 MESE" }
+        ]
     }
+
+
 }
 

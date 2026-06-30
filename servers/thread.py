@@ -51,3 +51,16 @@ def start_data_server():
     # ← NON fare thread.start() qui
 
     return thread, worker
+
+def load_map_filters():
+    config = load_config()
+    return config.get("map_filters", {
+        "default": "24h",
+        "options": [
+            {"key": "24h",   "label": "24h"},
+            {"key": "48h",   "label": "48h"},
+            {"key": "7gg",   "label": "7gg"},
+            {"key": "14gg",  "label": "14gg"},
+            {"key": "1mese", "label": "1 Mese"},
+        ]
+    })

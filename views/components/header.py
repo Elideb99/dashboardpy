@@ -47,8 +47,8 @@ class HeaderView:
         header_layout.addStretch(1)
 
         # ── Stato sistema ─────────────────────────────────────────
-        # state_container = self._create_state_widget()
-        # header_layout.addWidget(state_container)
+        state_container = self._create_state_widget()
+        header_layout.addWidget(state_container)
 
         main_layout.addWidget(header_frame)
     
@@ -396,7 +396,7 @@ class HeaderView:
                                         self.scale(15), self.scale(2))
         state_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        self.state_label = QLabel('STATO: <span style="color: #2e7d32;">NORMALE</span>')
+        self.state_label = QLabel('STATO: <span style="color: #2e7d32;"> - </span>')
         self.state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.state_label.setStyleSheet(f"font-size: {self.fs(20)}; font-weight: bold;")
         self.state_label.setWordWrap(True)
@@ -404,10 +404,33 @@ class HeaderView:
 
         return state_container
     
-    # ─── UI UPDATE METHODS ───────────────────────────────────────
+    # # ─── UI UPDATE METHODS ───────────────────────────────────────
     # def update_state(self, state, color):
     #     """Aggiorna il testo dello stato con il colore"""
     #     self.state_label.setText(f'STATO: <span style="color: {color};">{state}</span>')
+
+    # ─── STATO SISTEMA basato sull'ultimo evento sismico ──────────
+    def update_state_from_event(self, magnitudo=None, timestamp=None):
+     if magnitudo is None:
+        self.update_state("N.D.", "#53565A")
+        if hasattr(self, "state_label"):
+            self.state_label.setToolTip("")
+        return
+
+     if magnitudo >= 3.5:
+        stato, colore = "ALLERTA", "#c62828"
+     elif magnitudo >= 2.0:
+        stato, colore = "ATTENZIONE", "#f9a825"
+     else :
+        stato, colore= "NORMALE", "#2e7d32"
+
+     self.update_state(stato, colore)
+
+     if timestamp:
+        self.state_label.setToolTip(f"Ultimo evento rilevante: {timestamp}")
+
+    def update_state(self, state, color):
+     self.state_label.setText(f'STATO: <span style="color: {color};">{state}</span>')
     
     def update_clock(self, time_str, utc_time, date_str=None, date_utc_str=None):
         """Aggiorna l'orologio"""
@@ -443,7 +466,7 @@ class HeaderView:
      self.data_utc_label.setStyleSheet(f"font-size: {td}; color: #a0c4e8; font-weight: bold;")  # AGGIUNTO
      self.ora_label.setStyleSheet(f"font-size: {td}; color: white; font-family: monospace;")
      self.utc_label.setStyleSheet(f"font-size: {td}; color: #a0c4e8; font-family: monospace;")
-    #  self.state_label.setStyleSheet(f"font-size: {ts}; font-weight: bold;")
+     self.state_label.setStyleSheet(f"font-size: {ts}; font-weight: bold;")
 
      # Logo resize
      logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "ingvlogo.png")

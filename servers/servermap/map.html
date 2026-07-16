@@ -321,6 +321,12 @@ window.setBaseMap = function(url, attribution, minZoom , maxZoom) {
 
         if (currentLayer) { map.removeLayer(currentLayer); }
 
+        currentLayer = L.tileLayer(url, {
+            attribution: attribution || '',
+            minZoom: minZoom || 0,
+            maxZoom: maxZoom || 18
+        }).addTo(map);
+
         setTimeout(() => {
     if (map) fitToVulcani();
 }, 100);

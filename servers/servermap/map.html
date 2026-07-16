@@ -28,37 +28,39 @@ html, body {
 }
 
 /* ─── Legenda ─────────────────────────────────────────────── */
+
+
 .legend {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: clamp(10px, 2vh, 30px);
+    left: clamp(10px, 2vw, 30px);
     background: rgba(25, 34, 48, 0.95);
-    padding: 10px 15px;
-    border-radius: 8px;
+    padding: clamp(12px, 1.5vw, 24px) clamp(16px, 2vw, 30px);
+    border-radius: clamp(8px, 0.8vw, 14px);
     border: 1px solid #4175C0;
     color: white;
     font-family: monospace;
-    font-size: clamp(10px, 0.85vw, 22px); /* responsive fluido */
+    font-size: clamp(13px, 1.2vw, 30px);
     z-index: 1000;
     backdrop-filter: blur(5px);
-    max-width: calc(100% - 40px);
+    max-width: min(calc(100% - 40px), 360px);
 }
 
 .legend h4 {
-    margin: 0 0 8px 0;
-    font-size: 1.2em;
+    margin: 0 0 clamp(8px, 0.8vw, 14px) 0;
+    font-size: 1.25em;
 }
 
 .legend .row {
     display: flex;
     align-items: center;
-    margin-bottom: 5px;
-    gap: 8px;
+    margin-bottom: clamp(5px, 0.6vw, 10px);
+    gap: clamp(8px, 1vw, 14px);
 }
 
 .legend .color-box {
-    width: 1.4em;
-    height: 1.4em;
+    width: 1.5em;
+    height: 1.5em;
     min-width: 14px;
     min-height: 14px;
     border-radius: 50%;
@@ -93,11 +95,18 @@ html, body {
 <div id="map"></div>
 <div class="legend">
     <h4>Stato Attività</h4>
-    <div class="row"><div class="color-box" style="background:#4caf50;"></div> M &lt; 1.0</div>
-    <div class="row"><div class="color-box" style="background:#ffeb3b;"></div> M 1.0–2.0</div>
-    <div class="row"><div class="color-box" style="background:#ff9800;"></div> M 2.0–3.5</div>
-    <div class="row"><div class="color-box" style="background:#d32f2f;"></div> M ≥ 3.5</div>
-    <div class="row"><div class="color-box" style="background:#9C27B0;"></div> Area vulcano</div>
+    <div class="row"><div class="color-box" style="background:#1B7A3D;"></div> M &lt; 1.0</div>
+    <div class="row"><div class="color-box" style="background:#f9d71c;"></div> M 1.0–2.0</div>
+    <div class="row"><div class="color-box" style="background:#ff9800;"></div> M 2.0–3.0</div>
+    <div class="row"><div class="color-box" style="background:#e53935;"></div> M ≥ 3.0</div>
+
+    <div class="row" style="margin-top:8px; padding-top:8px; border-top:1px solid #33415c;">
+    <svg width="34" height="24" style="flex-shrink:0;" viewBox="0 0 34 24">
+        <circle cx="9" cy="12" r="9" fill="#9aa5b1" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="27" cy="12" r="3.5" fill="#9aa5b1" stroke="#ffffff" stroke-width="1"/>
+    </svg>
+    <span>Dimensione = quanto è recente<br><small style="opacity:0.75;">grande = recente · piccolo = vecchio</small></span>
+</div>
 </div>
 
 <script>
@@ -140,23 +149,16 @@ function fitPadding() {
  * va bene; su schermi enormi si può abbassare per mostrare
  * il contesto geografico più ampio.
  */
-// function initialZoom() {
-//     const w = window.innerWidth;
-//     if (w >= 5000) return 10;
-//     if (w >= 3200) return 11;
-//     if (w >= 2000) return 11;
-//     if (w >= 1200) return 12;
-//     return 11;  // buon compromesso per tutti
-// }
+
 
 function initialZoom() {
     const w = window.innerWidth;
     // Zoom molto alti per vedere i dettagli dei vulcani
-    if (w >= 5000) return 12;
-    if (w >= 3200) return 13;
-    if (w >= 2000) return 13;
-    if (w >= 1200) return 14;   // molto vicino su desktop
-    return 13;                  // mobile
+    if (w >= 5000) return 13;
+    if (w >= 3200) return 14;
+    if (w >= 2000) return 14;
+    if (w >= 1200) return 15;   // molto vicino su desktop
+    return 14;                  // mobile
 }
 
 // E modifica anche il fitToVulcani per non allontanarsi troppo
@@ -165,7 +167,7 @@ function fitToVulcani() {
     const bounds = getVulcaniBounds();
     // Usa maxZoom per evitare che si allontani troppo
     map.fitBounds(bounds, {
-        padding: [30, 30],
+        padding: [15, 15],
         maxZoom: initialZoom()  // Usa lo stesso zoom iniziale
     });
 }
@@ -231,15 +233,35 @@ function getVulcaniBounds() { // restituisce array di coordinate [[lat,lang], [l
 //     map.fitBounds(getVulcaniBounds(), fitPadding());
 // }
 
+// function handleResize() {
+//     if (!map) return;
+//     clearTimeout(resizeTimeout);
+//     resizeTimeout = setTimeout(() => {
+//         map.invalidateSize();
+//         fitToVulcani();
+//         // Ridisegna marker con raggio aggiornato
+//         for (const zona in vulcaniData) {
+//             const v = vulcaniData[zona];
+//             if (v.marker) {
+//                 v.marker.setRadius(markerRadius(v.stato));
+//             }
+//         }
+//     }, 250);
+
+// }
+
 function handleResize() {
     if (!map) return;
+
     clearTimeout(resizeTimeout);
+
     resizeTimeout = setTimeout(() => {
         map.invalidateSize();
         fitToVulcani();
-        // Ridisegna marker con raggio aggiornato
+
         for (const zona in vulcaniData) {
             const v = vulcaniData[zona];
+
             if (v.marker) {
                 v.marker.setRadius(markerRadius(v.stato));
             }
@@ -271,6 +293,9 @@ map.getPane('vulcaniPane').style.zIndex = 650;  // sempre sopra i pallini eventi
 map.createPane('eventiPane');
 map.getPane('eventiPane').style.zIndex = 400;   // sotto i vulcani
 
+window.eventiRenderer = L.canvas({ pane: 'eventiPane' });
+
+
 
         if (window.innerWidth <= 768) {
             map.zoomControl.setPosition('bottomright');
@@ -296,14 +321,10 @@ window.setBaseMap = function(url, attribution, minZoom , maxZoom) {
 
         if (currentLayer) { map.removeLayer(currentLayer); }
 
-        currentLayer = L.tileLayer(url, {
-            minZoom:      minZoom || 0,
-            maxZoom:      maxZoom || 20,
-            attribution:  attribution,
-            detectRetina: true
-        }).addTo(map);
-
-        setTimeout(() => { if (map) fitToVulcani(); }, 100);
+        setTimeout(() => {
+    if (map) fitToVulcani();
+}, 100);
+        
     }, 50);
 };
 // permette di cambiare provider di mappa a runtime 
@@ -325,63 +346,7 @@ function aggiornaColore(zona, stato, magnitudo) { // aggiorna il colore del vulc
     const raggio  = markerRadius(stato);
 
     // ── Marker ──────────────────────────────────────────────
-    /*if (v.marker) map.removeLayer(v.marker);
-
-    v.marker = L.circleMarker([v.lat, v.lng], {
-        radius:      raggio,
-        color:       coloreMarker,
-        fillColor:   coloreMarker,
-        fillOpacity: 0.9,
-        weight:      3,
-        pane:       'vulcaniPane'
-    }).addTo(map);
-
-    const magTesto = (magnitudo !== undefined && magnitudo !== null)
-        ? `<br>Ultima magnitudo: <b>M${Number(magnitudo).toFixed(1)}</b>`
-        : '';
-
-    v.marker.bindPopup(`
-        <div style="min-width:140px; font-size:1em;">
-            <b>${v.nome}</b>
-            ${magTesto}
-        </div>
-    `);*/
-
-    //<br> Stato: <span style="color:${coloreMarker}; font-weight:bold;">${stato}</span>
-
-    //── Cerchio zona monitoraggio ────────────────────────────
-    /*if (v.circle) map.removeLayer(v.circle);
-    if (v.circleFill) map.removeLayer(v.circleFill);
-
-    const magTesto = (magnitudo !== undefined && magnitudo !== null)
-    ? `<br>Ultima magnitudo: <b>M${Number(magnitudo).toFixed(1)}</b>`
-    : '';
-
-
-// Cerchio fill interno — NON interattivo, solo visivo
-    v.circleFill = L.circle([v.lat, v.lng], {
-     radius:      circleRadius(),
-     color:       'transparent',
-     fillColor:   colore,
-     fillOpacity: 0.08,
-     weight:      0,
-     interactive: false
-    }).addTo(map);
-
-    v.circle = L.circle([v.lat, v.lng], {
-        radius:      circleRadius(),
-        color:      '#9C27B0',
-        fill:   false,
-        weight:      6,
-        interactive: true
-    }).addTo(map);
-
-    v.circle.bindPopup(`
-    <div style="min-width:140px; font-size:1em;">
-        <b>${v.nome}</b>
-        ${magTesto}
-    </div>
-`);*/
+   
 
 if (v.circle) map.removeLayer(v.circle);
 
@@ -406,27 +371,6 @@ function generateRing(lat, lng, outerR, innerR, steps = 64) {
     return [outer, inner.reverse()]; // il buco va in senso opposto
 }
 
-// v.circle = L.polygon(
-//     generateRing(v.lat, v.lng, circleRadius(), circleRadius() * 0.82),
-//     {
-//         color:       '#9C27B0',
-//         fillColor:   '#9C27B0',
-//         fillOpacity: 0.15,
-//         weight:      1.5,
-//         interactive: true
-//     }
-// ).addTo(map);
-
-// v.circle.bindPopup(`
-//     <div style="min-width:140px; font-size:1em;">
-//         <b>${v.nome}</b>
-//         ${magTesto}
-//     </div>
-// `);
-
-// v.circle.on('click', function() {
-//     window.location.href = 'app://tab/' + zona.replace(/ /g, '-');
-// })
 
 
 }
@@ -456,6 +400,7 @@ window.aggiornaStatoVulcano = function(zona, stato, magnitudo) {
     aggiornaColore(zona, stato, magnitudo);
 };
 
+
 window.refreshMapView = function() {
     if (map && isInitialized) {
         setTimeout(() => {
@@ -465,6 +410,15 @@ window.refreshMapView = function() {
     }
 };
 
+// window.refreshMapView = function() {
+//     if (map && isInitialized) {
+//         setTimeout(() => {
+//             map.invalidateSize();
+//             fitToVulcani();
+//         }, 100);
+//     }
+// };
+
 window.zoomToVulcano = function(zona) { // centra la mappa su un vulcano specifico e apre il pop up informativo
     if (!map || !isInitialized) return; // se la mappa non esiste o non è stata inizializzata esce senza fare nulla
     const v = vulcaniData[zona]; // recupera i dati dal vulcano
@@ -473,84 +427,13 @@ window.zoomToVulcano = function(zona) { // centra la mappa su un vulcano specifi
         animate: true,
         duration: 1.2
     });
-    // Apre anche il popup del marker
-    // if (v.marker) { // se esiste la posizione del vulcano 
-    //     setTimeout(() => v.marker.openPopup(), 1300);
-    // }
+
 };
 
 window.zoomToAll = function() {
     if (!map || !isInitialized) return;
     fitToVulcani();
 };
-
-// ══════════════════════════════════════════════════════════════
-//  EVENTI SISMICI – pallini proporzionali alla magnitudo
-// ══════════════════════════════════════════════════════════════
-/*const eventiLayer = [];
-
-function magnitudo2raggio(mag) {
-    // scala quadratica: M0=3px M1=5px M2=10px M3=19px M4=32px M5+=40px
-    if (mag === null || mag === undefined) return 3;
-    return Math.min(3 + mag * mag * 1.8, 40);
-}
-
-function magnitudo2colore(mag) {
-    if (mag === null || mag === undefined) return '#aaaaaa';
-    if (mag >= 3.5) return '#d32f2f';  // rosso
-    if (mag >= 2.0) return '#ff9800';  // arancione
-    if (mag >= 1.0) return '#ffeb3b';  // giallo
-    return '#4caf50';                   // verde
-}
-
-window.aggiungiEvento = function(lat, lng, mag, data, qualita) {
-    if (!map || !isInitialized) return;
-
-    const raggio = magnitudo2raggio(mag);
-    const colore = magnitudo2colore(mag);
-    const magStr = (mag !== null && mag !== undefined)
-        ? `M${Number(mag).toFixed(1)}`
-        : 'M n.d.';
-
-    const pallino = L.circleMarker([lat, lng], {
-        radius:      raggio,
-        color:       colore,
-        fillColor:   colore,
-        fillOpacity: 0.85,
-        weight:      0   ,     // nessun bordo
-        pane:      'eventiPane'
-    }).addTo(map);
-
-    pallino.bindPopup(`
-        <div style="min-width:130px; font-size:0.95em;">
-            <b>${magStr}</b><br>
-            ${data}<br>
-            Qualità: ${qualita}<br>
-            <small>(${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)})</small>
-        </div>
-    `);
-
-    eventiLayer.push(pallino);
-};
-
-window.clearEventi = function() {
-    eventiLayer.forEach(c => map.removeLayer(c));
-    eventiLayer.length = 0;
-};
-
-window.aggiungiEventiBatch = function(eventi) {
-    if (!map || !isInitialized) return;
-    eventi.forEach(function(e) {
-        aggiungiEvento(e.lat, e.lng, e.mag, e.data, e.qualita);
-    });
-};
-
-window.currentFilter = "24h";
-
-window.setTimeFilter = function(value) {
-    window.currentFilter = value;
-    applyFilter();
-};*/
 
 // ══════════════════════════════════════════════════════════════
 //  EVENTI SISMICI – pallini proporzionali alla magnitudo
@@ -563,47 +446,89 @@ const eventiLayer  = [];
 
 window.currentFilter = "24h";
 
-// function magnitudo2raggio(mag) {
-//     if (mag === null || mag === undefined) return 3;
-//     return Math.min(3 + mag * mag * 1.8, 40);
-// }
 
-function magnitudo2raggio(mag) {
+
+/*function magnitudo2raggio(mag) {
 
     if (mag === null || mag === undefined) {
-        return 8;
+        return 7;
     }
 
     mag = Number(mag);
 
     // raggio minimo visibile
-    const base = 8;
+    const base = 7;
 
     // crescita con magnitudo
-    const scala = mag * mag * 2.5;
+    const scala = mag * mag * 2.2;
 
     // limite massimo
-    return Math.min(base + scala, 45);
+    return Math.min(base + scala, 40);
+}*/
+
+/**
+ * Calcola il raggio del pallino in base al tempo trascorso.
+ *
+ * Scossa recente  → pallino grande
+ * Scossa vecchia  → pallino piccolo
+ */
+function tempo2raggio(dataEvento) {
+    const raggioMinimo = 5;
+    const raggioMassimo = 18;
+
+    if (!dataEvento) {
+        return raggioMinimo;
+    }
+
+    const timestamp = Date.parse(
+        String(dataEvento).replace(' ', 'T')
+    );
+
+    if (isNaN(timestamp)) {
+        return raggioMinimo;
+    }
+
+    const tempoTrascorso = Math.max(0, Date.now() - timestamp);
+
+    /*
+     * La dimensione viene rapportata al filtro selezionato:
+     *
+     * 24h   → il pallino si riduce nell'arco di 24 ore
+     * 48h   → il pallino si riduce nell'arco di 48 ore
+     * 7gg   → il pallino si riduce nell'arco di 7 giorni
+     * ecc.
+     *
+     * Con "all" viene usato un intervallo massimo di 30 giorni.
+     */
+    let intervallo = filterDelta(window.currentFilter);
+
+    if (!isFinite(intervallo)) {
+        intervallo = 30 * 24 * 60 * 60 * 1000;
+    }
+
+    // 0 = evento appena avvenuto
+    // 1 = evento arrivato al limite temporale del filtro
+    const percentualeEta = Math.min(
+        tempoTrascorso / intervallo,
+        1
+    );
+
+    // Il raggio diminuisce gradualmente con l'età
+    const raggio =
+        raggioMassimo -
+        percentualeEta * (raggioMassimo - raggioMinimo);
+
+    return Math.round(raggio);
 }
 
 function magnitudo2colore(mag) {
-    if (mag === null || mag === undefined) return '#aaaaaa';
-    if (mag >= 3.5) return '#d32f2f';
+    //if (mag === null || mag === undefined) return '#6b7280';
+    if (mag >= 3.0) return '#e53935';
     if (mag >= 2.0) return '#ff9800';
-    if (mag >= 1.0) return '#ffeb3b';
-    return '#4caf50';
+    if (mag >= 1.0) return '#f9d71c';
+    return '#1B7A3D'; // verde
 }
 
-// function filterDelta(filterKey) {
-//     const MS = {
-//         "24h":   24 * 3600 * 1000,
-//         "48h":   48 * 3600 * 1000,
-//         "7gg":    7 * 86400 * 1000,
-//         "14gg":  14 * 86400 * 1000,
-//         "1mese": 30 * 86400 * 1000,
-//     };
-//     return MS[filterKey] || MS["24h"];
-// }
 
 function filterDelta(filterKey) {
     if (filterKey === "all") {
@@ -620,23 +545,30 @@ function filterDelta(filterKey) {
 }
 
 function _disegnaEvento(e) {
-    const raggio = magnitudo2raggio(e.mag);
+    // const raggio = magnitudo2raggio(e.mag);
+    const raggio = tempo2raggio(e.data);
     const colore = magnitudo2colore(e.mag);
     const magStr = (e.mag !== null && e.mag !== undefined)
-        ? `M${Number(e.mag).toFixed(1)}`
+        ? `Md${Number(e.mag).toFixed(1)}`
         : 'M n.d.';
+
+    const area = e.area || 'n.d.';
 
     const pallino = L.circleMarker([e.lat, e.lng], {
         radius:      raggio,
-        color:       colore,
+        color:       '#ffffff',      // ← bordo bianco invece del colore magnitudo
         fillColor:   colore,
-        fillOpacity: 0.75,
-        weight:      1,
-        pane:        'eventiPane'
+        fillOpacity: 1,             // ← più pieno (era 0.75)
+        weight:      1,               // ← bordo più spesso (era 1)
+        opacity:     1,               // ← bordo sempre opaco
+        pane:        'eventiPane',
+        renderer:    window.eventiRenderer
+        
     }).addTo(map);
 
     pallino.bindPopup(`
         <div style="min-width:130px; font-size:0.95em;">
+            <b>${area}</b><br>
             <b>${magStr}</b><br>
             ${e.data}<br>
             Qualità: ${e.qualita}<br>
@@ -645,6 +577,7 @@ function _disegnaEvento(e) {
     `);
 
     eventiLayer.push(pallino);
+    return pallino;
 }
 
 function applyFilter() {
@@ -657,6 +590,7 @@ function applyFilter() {
 
     // 3. Ridisegna solo gli eventi che rientrano nel periodo
     eventiMaster.forEach(function(e) {
+        e.marker = null;
         let ts = null;
         if (e.data) {
             // accetta sia "2024-05-01T12:00:00" che "2024-05-01 12:00:00"
@@ -664,22 +598,58 @@ function applyFilter() {
         }
         // se la data non è parsabile mostriamo comunque l'evento
         if (ts === null || isNaN(ts) || ts >= cutoff) {
-            _disegnaEvento(e);
+            e.marker =_disegnaEvento(e);
         }
     });
 }
 
 // ── API esposte a Python ───────────────────────────────────────
 
-window.aggiungiEvento = function(lat, lng, mag, data, qualita) {
+/*window.aggiungiEvento = function(lat, lng, mag, data, qualita , area) {
     if (!map || !isInitialized) return;
-    const e = { lat, lng, mag, data, qualita };
+    const e = { lat, lng, mag, data, qualita, area };
     eventiMaster.push(e);
     // disegna solo se rientra nel filtro attivo
     const cutoff = Date.now() - filterDelta(window.currentFilter);
     let ts = data ? Date.parse(data.replace(' ', 'T')) : NaN;
     if (isNaN(ts) || ts >= cutoff) {
         _disegnaEvento(e);
+    }
+};*/
+
+window.aggiungiEvento = function(lat, lng, mag, data, qualita, area) {
+    if (!map || !isInitialized) return;
+    const e = { lat, lng, mag, data, qualita, area };
+    eventiMaster.push(e);
+    const cutoff = Date.now() - filterDelta(window.currentFilter);
+    let ts = data ? Date.parse(data.replace(' ', 'T')) : NaN;
+    if (isNaN(ts) || ts >= cutoff) {
+        e.marker = _disegnaEvento(e);
+    }
+};
+
+window.upsertEvento = function(chiave, lat, lng, mag, data, qualita, area) {
+    if (!map || !isInitialized) return;
+
+    const nuovoDato = { chiave, lat, lng, mag, data, qualita, area };
+    const idx = eventiMaster.findIndex(e => e.chiave === chiave);
+
+    if (idx !== -1) {
+        const vecchio = eventiMaster[idx];
+        if (vecchio.marker) {
+            map.removeLayer(vecchio.marker);
+            const layerIdx = eventiLayer.indexOf(vecchio.marker);
+            if (layerIdx !== -1) eventiLayer.splice(layerIdx, 1);
+        }
+        eventiMaster[idx] = nuovoDato;
+    } else {
+        eventiMaster.push(nuovoDato);
+    }
+
+    const cutoff = Date.now() - filterDelta(window.currentFilter);
+    let ts = data ? Date.parse(String(data).replace(' ', 'T')) : NaN;
+    if (isNaN(ts) || ts >= cutoff) {
+        nuovoDato.marker = _disegnaEvento(nuovoDato);
     }
 };
 
@@ -692,15 +662,47 @@ window.clearEventi = function() {
 window.aggiungiEventiBatch = function(eventi) {
     if (!map || !isInitialized) return;
     eventi.forEach(function(e) {
-        window.aggiungiEvento(e.lat, e.lng, e.mag, e.data, e.qualita);
+        window.aggiungiEvento(e.lat, e.lng, e.mag, e.data, e.qualita, e.area);
     });
 };
 
+/*
 window.setTimeFilter = function(value) {
     window.currentFilter = value;
     applyFilter();          // ridisegna con il nuovo cutoff
 };
+*/
+// window.setTimeFilter = function(value) {
+//     if (!map || !isInitialized) {
+//         const iv = setInterval(() => {
+//             if (map && isInitialized) {
+//                 clearInterval(iv);
+//                 window.currentFilter = value;
+//                 applyFilter();
+//             }
+//         }, 100);
+//         setTimeout(() => clearInterval(iv), 5000);
+//         return;
+//     }
+//     window.currentFilter = value;
+//     applyFilter();
+// };
 
+window.setTimeFilter = function(value) {
+    if (!map || !isInitialized) {
+        const iv = setInterval(() => {
+            if (map && isInitialized) {
+                clearInterval(iv);
+                window.currentFilter = value;
+                applyFilter();
+            }
+        }, 100);
+        setTimeout(() => clearInterval(iv), 5000);
+        return;
+    }
+    window.currentFilter = value;
+    applyFilter();
+};
 
 
 

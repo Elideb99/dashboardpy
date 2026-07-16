@@ -103,11 +103,7 @@ class MapService:
                 }
             """)
 
-    # def add_evento(self, lat, lng, mag, data, qualita):
-    #  if not self.map_ready or not self.webview:
-    #     return
-    #  js = f'aggiungiEvento({lat}, {lng}, {mag}, "{data}", "{qualita}");'
-    #  self.webview.page().runJavaScript(js)
+
     def add_eventi_batch(self, eventi: list):
      """Passa tutti gli eventi in una sola chiamata JS."""
      if not self.map_ready or not self.webview:
@@ -120,3 +116,12 @@ class MapService:
      if self.map_ready and self.webview:
         self.webview.page().runJavaScript('clearEventi();')
     
+    def upsert_evento(self, chiave: str, lat, lng, mag, data, qualita, area):
+     """Aggiorna o aggiunge un solo pallino sulla mappa, senza ridisegnare tutto.
+     Fondamentale con flussi Kafka ad alta frequenza."""
+     if not self.map_ready or not self.webview:
+        return
+     import json
+     args = json.dumps([chiave, lat, lng, mag, data, qualita, area])
+     js = f'if (typeof upsertEvento !== "undefined") upsertEvento(...{args});'
+     self.webview.page().runJavaScript(js)

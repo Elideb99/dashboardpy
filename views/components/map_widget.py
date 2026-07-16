@@ -56,14 +56,14 @@ class MapWidget:
      # --- BARRA FILTRI ---
      btn_bar = QWidget()
      btn_bar.setFixedHeight(self.scale(36))
-     btn_bar.setStyleSheet("background-color: #1a2a3a; border: none;")
+     btn_bar.setStyleSheet("background-color: #1C2B40; border: none;")
      btn_layout = QHBoxLayout()
      btn_layout.setContentsMargins(self.scale(8), self.scale(4), self.scale(8), self.scale(4))
      btn_layout.setSpacing(self.scale(6))
 
      btn_style = f"""
         QPushButton {{
-            background-color: #213B64;
+            background-color: #1C2B40;
             color: #a0c4e8;
             font-size: {self.scale(13)}px;
             font-weight: bold;

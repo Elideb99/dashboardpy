@@ -1,8 +1,8 @@
 import os
 from datetime import datetime
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt 
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel, QSizePolicy
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QPen
 
 class HeaderView:
     """VIEW: Gestisce l'header con logo, titoli, data/ora (con icone) e stato"""
@@ -16,6 +16,8 @@ class HeaderView:
         self.data_label = None
         self.ora_label = None
         self.state_label = None
+        self.state_icon = None
+        self.swarm_label= None
     
     def scale(self, v):
         return max(1, int(v * self.ui_scale))
@@ -24,33 +26,85 @@ class HeaderView:
         return f"{self.scale(px)}px"
     
     def create(self, main_layout):
-        header_frame = QFrame()
-        header_frame.setStyleSheet("background-color: #1C2B40; border-radius: 8px;")
-        header_frame.setMinimumHeight(self.scale(95))
-        header_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+     header_frame = QFrame()
+     header_frame.setStyleSheet("background-color: #0F1521; border-radius: 8px;")
+     header_frame.setMinimumHeight(self.scale(95))
+     header_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+ 
+     header_layout = QHBoxLayout(header_frame)
+     header_layout.setContentsMargins(self.scale(20), self.scale(10),
+                                     self.scale(20), self.scale(10))
+     header_layout.setSpacing(self.scale(15))
 
-        header_layout = QHBoxLayout(header_frame)
-        header_layout.setContentsMargins(self.scale(20), self.scale(5),
-                                         self.scale(20), self.scale(5))
-        header_layout.setSpacing(self.scale(15))
+     self._create_logo(header_layout)
+     self._create_titles(header_layout)
 
-        # ── Logo ──────────────────────────────────────────────────
-        self._create_logo(header_layout)
+     header_layout.addStretch(1)
 
-        # ── Titoli ────────────────────────────────────────────────
-        self._create_titles(header_layout)
+     datetime_container = self._create_datetime_widget()
+     header_layout.addWidget(datetime_container)
 
-        # ── Data/ora con icone ────────────────────────────────────
-        datetime_container = self._create_datetime_widget()
-        header_layout.addStretch(1)
-        header_layout.addWidget(datetime_container)
-        header_layout.addStretch(1)
+     header_layout.addStretch(1)
 
-        # ── Stato sistema ─────────────────────────────────────────
-        state_container = self._create_state_widget()
-        header_layout.addWidget(state_container)
+     state_container = self._create_state_widget()
+     header_layout.addWidget(state_container)
 
-        main_layout.addWidget(header_frame)
+     swarm_container = self._create_swarm_widget()
+     header_layout.addWidget(swarm_container)
+
+     main_layout.addWidget(header_frame)
+
+    def _create_swarm_widget(self):
+     """Crea il riquadro dello stato dello sciame sismico"""
+
+     container = QFrame()
+     container.setStyleSheet("background-color: #1C2B40; border-radius: 8px;")
+     container.setMinimumWidth(self.scale(210))
+     container.setMinimumHeight(self.scale(50))
+     container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+
+     layout = QVBoxLayout(container)
+     layout.setContentsMargins(
+        self.scale(14),
+        self.scale(8),
+        self.scale(14),
+        self.scale(8)
+     )
+     layout.setSpacing(self.scale(4))
+
+     caption = QLabel("SCIAME SISMICO:")
+     caption.setStyleSheet(
+        f"font-size: {self.fs(15)}; color: #a0c4e8; "
+        f"font-weight: bold; letter-spacing: 1px;"
+     )
+     layout.addWidget(caption)
+
+     self.swarm_label = QLabel("N.D.")
+     self.swarm_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+     layout.addWidget(self.swarm_label)
+
+     self.update_swarm_state("N.D.", "#53565A")
+
+     return container
+
+
+    def update_swarm_state(self, state, color="#53565A", tooltip=""):
+     """Aggiorna il riquadro dello sciame sismico"""
+
+     if not self.swarm_label:
+        return
+
+     self.swarm_label.setText(state)
+     self.swarm_label.setToolTip(tooltip)
+
+     self.swarm_label.setStyleSheet(f"""
+        background-color: {color};
+        color: white;
+        font-weight: bold;
+        font-size: {self.fs(14)};
+        border-radius: {self.scale(6)}px;
+        padding: {self.scale(2)}px {self.scale(10)}px;
+     """)
     
     def _create_logo(self, layout):
         self.logo_label = QLabel()
@@ -85,362 +139,178 @@ class HeaderView:
         titles_layout.addWidget(self.title1)
         titles_layout.addWidget(self.title2)
         layout.addLayout(titles_layout, 2)
-    
-    # def _create_datetime_widget(self):
-    #     """Crea il widget data/ora con icone (IDENTICO ALL'ORIGINALE)"""
-    #     datetime_container = QFrame()
-    #     datetime_container.setStyleSheet("background-color: #213B64; border-radius: 6px;")
-    #     datetime_container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-    #     datetime_container.setMinimumHeight(self.scale(35))
-
-    #     datetime_layout = QHBoxLayout(datetime_container)
-    #     datetime_layout.setSpacing(self.scale(12))
-    #     datetime_layout.setContentsMargins(self.scale(15), 0, self.scale(15), 0)
-    #     datetime_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-    #     icon_size = self.scale(28)
-
-    #     # ── Data con icona calendario ─────────────────────────────
-    #     data_layout = QHBoxLayout()
-    #     data_layout.setSpacing(self.scale(8))
-    #     data_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #     data_icon = QLabel()
-    #     calendar_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "calendario.png")
-    #     if os.path.exists(calendar_path):
-    #         cal_pix = QPixmap(calendar_path).scaled(icon_size, icon_size,
-    #             Qt.AspectRatioMode.KeepAspectRatio,
-    #             Qt.TransformationMode.SmoothTransformation)
-    #         data_icon.setPixmap(cal_pix)
-    #     else:
-    #         data_icon.setText("📅")
-    #         data_icon.setStyleSheet(f"font-size: {self.fs(22)};")
-
-    #     self.data_label = QLabel(datetime.now().strftime("%d/%m/%Y"))
-    #     self.data_label.setStyleSheet(f"font-size: {self.fs(24)}; font-weight: bold;")
-    #     data_layout.addWidget(data_icon)
-    #     data_layout.addWidget(self.data_label)
-
-    #     # ── Separatore ───────────────────────────────────────────
-    #     separator = QLabel("|")
-    #     separator.setStyleSheet(f"font-size: {self.fs(24)}; color: #4A90E2; font-weight: bold;")
-    #     separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #     # ── Ora con icona orologio ────────────────────────────────
-    #     ora_layout = QHBoxLayout()
-    #     ora_layout.setSpacing(self.scale(8))
-    #     ora_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #     self.utc_label=QLabel()
-    #     self.utc_label.setStyleSheet("font-size: 14px; color: #a0c4e8;")
-    #     ora_layout.addWidget(self.utc_label)
-
-
-    #     ora_icon = QLabel()
-    #     clock_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "orario.png")
-    #     if os.path.exists(clock_path):
-    #         clk_pix = QPixmap(clock_path).scaled(icon_size, icon_size,
-    #             Qt.AspectRatioMode.KeepAspectRatio,
-    #             Qt.TransformationMode.SmoothTransformation)
-    #         ora_icon.setPixmap(clk_pix)
-    #     else:
-    #         ora_icon.setText("🕐")
-    #         ora_icon.setStyleSheet(f"font-size: {self.fs(22)};")
-
-    #     self.ora_label = QLabel(datetime.now().strftime("%H:%M:%S"))
-    #     self.ora_label.setStyleSheet(f"font-size: {self.fs(24)}; font-family: monospace; font-weight: bold;")
-    #     ora_layout.addWidget(ora_icon)
-    #     ora_layout.addWidget(self.ora_label)
-
-    #     datetime_layout.addLayout(data_layout)
-    #     datetime_layout.addWidget(separator)
-    #     datetime_layout.addLayout(ora_layout)
-
-    #     return datetime_container
-
-    # def _create_datetime_widget(self):
-    #  """Crea il widget data/ora con icone"""
-    #  datetime_container = QFrame()
-    #  datetime_container.setStyleSheet("background-color: #213B64; border-radius: 6px;")
-    #  datetime_container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-    #  datetime_container.setMinimumHeight(self.scale(35))
-
-    #  datetime_layout = QHBoxLayout(datetime_container)
-    #  datetime_layout.setSpacing(self.scale(12))
-    #  datetime_layout.setContentsMargins(self.scale(15), 0, self.scale(15), 0)
-    #  datetime_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-    #  icon_size = self.scale(28)
-
-    #  # ── Data con icona calendario ─────────────────────────────
-    #  data_layout = QHBoxLayout()
-    #  data_layout.setSpacing(self.scale(8))
-    #  data_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #  data_icon = QLabel()
-    #  calendar_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "calendario.png")
-    #  if os.path.exists(calendar_path):
-    #     cal_pix = QPixmap(calendar_path).scaled(icon_size, icon_size,
-    #         Qt.AspectRatioMode.KeepAspectRatio,
-    #         Qt.TransformationMode.SmoothTransformation)
-    #     data_icon.setPixmap(cal_pix)
-    #  else:
-    #     data_icon.setText("📅")
-    #     data_icon.setStyleSheet(f"font-size: {self.fs(22)};")
-
-    #  self.data_label = QLabel(datetime.now().strftime("%d/%m/%Y"))
-    #  self.data_label.setStyleSheet(f"font-size: {self.fs(24)}; font-weight: bold;")
-    #  data_layout.addWidget(data_icon)
-    #  data_layout.addWidget(self.data_label)
-
-    #  # ── Separatore ───────────────────────────────────────────
-    #  separator1 = QLabel("|")
-    #  separator1.setStyleSheet(f"font-size: {self.fs(24)}; color: #4A90E2; font-weight: bold;")
-    #  separator1.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #  # ── Ora ITALIANA con icona orologio ─────────────────────
-    #  ora_layout = QHBoxLayout()
-    #  ora_layout.setSpacing(self.scale(8))
-    #  ora_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #  ora_icon = QLabel()
-    #  clock_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "orario.png")
-    #  if os.path.exists(clock_path):
-    #     clk_pix = QPixmap(clock_path).scaled(icon_size, icon_size,
-    #         Qt.AspectRatioMode.KeepAspectRatio,
-    #         Qt.TransformationMode.SmoothTransformation)
-    #     ora_icon.setPixmap(clk_pix)
-    #  else:
-    #     ora_icon.setText("🕐")
-    #     ora_icon.setStyleSheet(f"font-size: {self.fs(22)};")
-
-    #  self.ora_label = QLabel(datetime.now().strftime("%H:%M:%S"))
-    #  self.ora_label.setStyleSheet(f"font-size: {self.fs(24)}; font-family: monospace; font-weight: bold;")
-    #  ora_layout.addWidget(ora_icon)
-    #  ora_layout.addWidget(self.ora_label)
-
-    #  # ── Separatore tra ora ITA e UTC ────────────────────────
-    #  separator2 = QLabel("-")
-    #  separator2.setStyleSheet(f"font-size: {self.fs(24)}; color: #4A90E2; font-weight: bold;")
-    #  separator2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #  # ── Ora UTC con icona internet ──────────────────────────
-    #  utc_layout = QHBoxLayout()
-    #  utc_layout.setSpacing(self.scale(8))
-    #  utc_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #  utc_icon = QLabel()
-    #  internet_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "internet.png")
-    #  if os.path.exists(internet_path):
-    #     internet_pix = QPixmap(internet_path).scaled(icon_size, icon_size,
-    #         Qt.AspectRatioMode.KeepAspectRatio,
-    #         Qt.TransformationMode.SmoothTransformation)
-    #     utc_icon.setPixmap(internet_pix)
-    #  else:
-    #     utc_icon.setText("🌐")
-    #     utc_icon.setStyleSheet(f"font-size: {self.fs(22)};")
-
-    #  self.utc_label = QLabel(datetime.utcnow().strftime("%H:%M:%S"))
-    #  self.utc_label.setStyleSheet(f"font-size: {self.fs(24)}; font-family: monospace; font-weight: bold; color: #a0c4e8;")
-    #  utc_layout.addWidget(utc_icon)
-    #  utc_layout.addWidget(self.utc_label)
-
-    #  # ── Assemblaggio finale ──────────────────────────────────
-    #  datetime_layout.addLayout(data_layout)
-    #  datetime_layout.addWidget(separator1)
-    #  datetime_layout.addLayout(ora_layout)
-    #  datetime_layout.addWidget(separator2)
-    #  datetime_layout.addLayout(utc_layout)
-
-    # return datetime_container
 
     def _create_datetime_widget(self):
-     """Crea il widget data/ora con icone"""
-     datetime_container = QFrame()
-     datetime_container.setStyleSheet("background-color: #213B64; border-radius: 6px;")
-     datetime_container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-     datetime_container.setMinimumHeight(self.scale(35))
+     """Card data/ora in stile mockup: data+giorno sopra, ora+UTC sotto"""
+     container = QFrame()
+     container.setStyleSheet("background-color: #1C2B40; border-radius: 8px;")
+     container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+     container.setMinimumHeight(self.scale(50))
+     container.setMinimumWidth(self.scale(260))
 
-     datetime_layout = QHBoxLayout(datetime_container)
-     datetime_layout.setSpacing(self.scale(12))
-     datetime_layout.setContentsMargins(self.scale(15), 0, self.scale(15), 0)
-     datetime_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+     layout = QHBoxLayout(container)
+     layout.setContentsMargins(self.scale(16), self.scale(6), self.scale(16), self.scale(6))
+     layout.setSpacing(self.scale(14))
+     layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-     icon_size = self.scale(28)
+     icon_size = self.scale(24)
 
-     # ── Data ITALIANA con icona calendario ─────────────────────
-     data_layout = QHBoxLayout()
-     data_layout.setSpacing(self.scale(8))
-     data_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-     data_icon = QLabel()
+     # ── Icona calendario ──────────────────────────────────────
+     cal_icon = QLabel()
      calendar_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "calendario.png")
      if os.path.exists(calendar_path):
-        cal_pix = QPixmap(calendar_path).scaled(icon_size, icon_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        data_icon.setPixmap(cal_pix)
+        pix = QPixmap(calendar_path).scaled(icon_size, icon_size,
+            Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        cal_icon.setPixmap(pix)
      else:
-        data_icon.setText("📅")
-        data_icon.setStyleSheet(f"font-size: {self.fs(22)};")
+        cal_icon.setText("📅")
+        cal_icon.setStyleSheet(f"font-size: {self.fs(20)};")
+     layout.addWidget(cal_icon)
+
+     # ── Blocco data (data + giorno settimana) ─────────────────
+     data_block = QVBoxLayout()
+     data_block.setSpacing(0)
 
      self.data_label = QLabel(datetime.now().strftime("%d/%m/%Y"))
-     self.data_label.setStyleSheet(f"font-size: {self.fs(24)}; font-weight: bold;")
-     data_layout.addWidget(data_icon)
-     data_layout.addWidget(self.data_label)
+     self.data_label.setStyleSheet(f"font-size: {self.fs(18)}; font-weight: bold; color: white;")
 
-     # ── Separatore 1 ─────────────────────────────────────────
-    #  separator1 = QLabel("-")
-    #  separator1.setStyleSheet(f"font-size: {self.fs(24)}; color: #4A90E2; font-weight: bold;")
-    #  separator1.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-     # ── Data UTC con icona internet ──────────────────────────
-     data_utc_layout = QHBoxLayout()
-     data_utc_layout.setSpacing(self.scale(8))
-     data_utc_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+     data_block.addWidget(self.data_label)
+     layout.addLayout(data_block)
 
-     data_utc_icon = QLabel()
-     internet_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "internet.png")
-     if os.path.exists(internet_path):
-        internet_pix = QPixmap(internet_path).scaled(icon_size, icon_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        data_utc_icon.setPixmap(internet_pix)
-     else:
-        data_utc_icon.setText("🌐")
-        data_utc_icon.setStyleSheet(f"font-size: {self.fs(22)};")
+     # ── Separatore verticale ───────────────────────────────────
+     sep = QFrame()
+     sep.setFrameShape(QFrame.Shape.VLine)
+     sep.setStyleSheet("color: #2A3B52;")
+     layout.addWidget(sep)
 
-     self.data_utc_label = QLabel(datetime.utcnow().strftime("%d/%m/%Y"))
-     self.data_utc_label.setStyleSheet(f"font-size: {self.fs(24)}; font-weight: bold; color: #a0c4e8;")
-     data_utc_layout.addWidget(data_utc_icon)
-     data_utc_layout.addWidget(self.data_utc_label)
-
-     # ── Separatore 2 ─────────────────────────────────────────
-     separator2 = QLabel("|")
-     separator2.setStyleSheet(f"font-size: {self.fs(24)}; color: #4A90E2; font-weight: bold;")
-     separator2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-     # ── Ora ITALIANA con icona orologio ─────────────────────
-     ora_layout = QHBoxLayout()
-     ora_layout.setSpacing(self.scale(8))
-     ora_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-     ora_icon = QLabel()
+     # ── Icona orologio ─────────────────────────────────────────
+     clock_icon = QLabel()
      clock_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "orario.png")
      if os.path.exists(clock_path):
-        clk_pix = QPixmap(clock_path).scaled(icon_size, icon_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        ora_icon.setPixmap(clk_pix)
+        pix = QPixmap(clock_path).scaled(icon_size, icon_size,
+            Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        clock_icon.setPixmap(pix)
      else:
-        ora_icon.setText("🕐")
-        ora_icon.setStyleSheet(f"font-size: {self.fs(22)};")
+        clock_icon.setText("🕐")
+        clock_icon.setStyleSheet(f"font-size: {self.fs(20)};")
+     layout.addWidget(clock_icon)
+
+     # ── Blocco ora (ora locale + UTC) ──────────────────────────
+     ora_block = QVBoxLayout()
+     ora_block.setSpacing(0)
 
      self.ora_label = QLabel(datetime.now().strftime("%H:%M:%S"))
-     self.ora_label.setStyleSheet(f"font-size: {self.fs(24)}; font-family: monospace; font-weight: bold;")
-     ora_layout.addWidget(ora_icon)
-     ora_layout.addWidget(self.ora_label)
+     self.ora_label.setStyleSheet(f"font-size: {self.fs(18)}; font-weight: bold; font-family: monospace; color: white;")
 
-     # ── Separatore 3 ─────────────────────────────────────────
-    #  separator3 = QLabel("-")
-    #  separator3.setStyleSheet(f"font-size: {self.fs(24)}; color: #4A90E2; font-weight: bold;")
-    #  separator3.setAlignment(Qt.AlignmentFlag.AlignCenter)
+     self.utc_label = QLabel(datetime.utcnow().strftime("%H:%M:%S") + " UTC")
+     self.utc_label.setStyleSheet(f"font-size: {self.fs(13)}; font-family: monospace; color: #7E8CA3;")
 
-     # ── Ora UTC con icona internet ──────────────────────────
-     utc_layout = QHBoxLayout()
-     utc_layout.setSpacing(self.scale(8))
-     utc_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+     ora_block.addWidget(self.ora_label)
+     ora_block.addWidget(self.utc_label)
+     layout.addLayout(ora_block)
 
-     utc_icon = QLabel()
-     # Riutilizziamo internet.png anche per l'ora UTC (o usiamo un'altra icona)
-     if os.path.exists(internet_path):
-        utc_pix = QPixmap(internet_path).scaled(icon_size, icon_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        utc_icon.setPixmap(utc_pix)
-     else:
-        utc_icon.setText("🕐")
-        utc_icon.setStyleSheet(f"font-size: {self.fs(22)};")
+     # data_utc_label la teniamo per compatibilità con update_clock, ma nascosta
+     self.data_utc_label = QLabel()
+     self.data_utc_label.setVisible(False)
 
-     self.utc_label = QLabel(datetime.utcnow().strftime("%H:%M:%S"))
-     self.utc_label.setStyleSheet(f"font-size: {self.fs(24)}; font-family: monospace; font-weight: bold; color: #a0c4e8;")
-     utc_layout.addWidget(utc_icon)
-     utc_layout.addWidget(self.utc_label)
-
-     # ── Assemblaggio finale ──────────────────────────────────
-     datetime_layout.addLayout(data_layout)
-     #datetime_layout.addWidget(separator1)
-     datetime_layout.addLayout(data_utc_layout)
-     datetime_layout.addWidget(separator2)
-     datetime_layout.addLayout(ora_layout)
-     #datetime_layout.addWidget(separator3)
-     datetime_layout.addLayout(utc_layout)
-
-     return datetime_container
+     return container
 
 
 
 
 
-    
-    
     def _create_state_widget(self):
-        """Crea il widget dello stato sistema (IDENTICO ALL'ORIGINALE)"""
-        state_container = QFrame()
-        state_container.setStyleSheet("background-color: #213B64; border-radius: 6px;")
-        state_container.setMinimumWidth(self.scale(200))
-        state_container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+     """Crea il widget dello stato sistema: icona + etichetta + pillola colorata"""
 
-        state_layout = QHBoxLayout(state_container)
-        state_layout.setContentsMargins(self.scale(15), self.scale(2),
-                                        self.scale(15), self.scale(2))
-        state_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+     container = QFrame()
+     container.setStyleSheet("background-color: #1C2B40; border-radius: 8px;")
+     container.setMinimumWidth(self.scale(170))
+     container.setMinimumHeight(self.scale(50))
+     container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
 
-        self.state_label = QLabel('STATO: <span style="color: #2e7d32;"> - </span>')
-        self.state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.state_label.setStyleSheet(f"font-size: {self.fs(20)}; font-weight: bold;")
-        self.state_label.setWordWrap(True)
-        state_layout.addWidget(self.state_label)
+     outer = QHBoxLayout(container)
+     outer.setContentsMargins(
+        self.scale(14),
+        self.scale(8),
+        self.scale(14),
+        self.scale(8)
+     )
+     outer.setSpacing(self.scale(10))
+     outer.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        return state_container
-    
-    # # ─── UI UPDATE METHODS ───────────────────────────────────────
-    # def update_state(self, state, color):
-    #     """Aggiorna il testo dello stato con il colore"""
-    #     self.state_label.setText(f'STATO: <span style="color: {color};">{state}</span>')
+     self.state_icon = QLabel()
+     icon_size = self.scale(24)
+     self.state_icon.setPixmap(self._draw_shield_icon("#53565A", icon_size))
+     outer.addWidget(self.state_icon)
 
-    # ─── STATO SISTEMA basato sull'ultimo evento sismico ──────────
+     text_block = QVBoxLayout()
+     text_block.setSpacing(self.scale(4))
+     text_block.setContentsMargins(0, 0, 0, 0)
+
+     caption = QLabel("STATO SISTEMA:")
+     caption.setStyleSheet(
+        f"font-size: {self.fs(15)}; color: #a0c4e8; "
+        f"font-weight: bold; letter-spacing: 1px;"
+     )
+     text_block.addWidget(caption)
+
+     self.state_label = QLabel("N.D.")
+     self.state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+     text_block.addWidget(self.state_label)
+
+     outer.addLayout(text_block)
+
+     self.update_state("N.D.", "#53565A")
+
+     return container
+
+    def _apply_state_style(self, color):
+     """Applica lo sfondo colorato + testo bianco alla pillola di stato"""
+
+     self.state_label.setStyleSheet(f"""
+        background-color: {color};
+        color: white;
+        font-weight: bold;
+        font-size: {self.fs(14)};
+        border-radius: {self.scale(6)}px;
+        padding: {self.scale(2)}px {self.scale(10)}px;
+     """)
+
+     self._current_color = color
+
+     if hasattr(self, "state_icon") and self.state_icon:
+        self.state_icon.setPixmap(self._draw_shield_icon(color))
+     # ─── STATO SISTEMA basato sull'ultimo evento sismico ──────────
     def update_state_from_event(self, magnitudo=None, timestamp=None):
      if magnitudo is None:
         self.update_state("N.D.", "#53565A")
-        if hasattr(self, "state_label"):
+        if self.state_label:
             self.state_label.setToolTip("")
         return
 
-     if magnitudo >= 3.5:
-        stato, colore = "ALLERTA", "#c62828"
+     if magnitudo >= 3.0:
+        stato, colore = "ALLARME", "#c62828"
      elif magnitudo >= 2.0:
         stato, colore = "ATTENZIONE", "#f9a825"
-     else :
-        stato, colore= "NORMALE", "#2e7d32"
+     else:
+        stato, colore = "NORMALE", "#2e7d32"
 
      self.update_state(stato, colore)
 
-     if timestamp:
+     if timestamp and self.state_label:
         self.state_label.setToolTip(f"Ultimo evento rilevante: {timestamp}")
 
     def update_state(self, state, color):
-     self.state_label.setText(f'STATO: <span style="color: {color};">{state}</span>')
+     self.state_label.setText(state)
+     self._apply_state_style(color)
     
+   
     def update_clock(self, time_str, utc_time, date_str=None, date_utc_str=None):
-        """Aggiorna l'orologio"""
-        self.ora_label.setText(f"{time_str} UTC+1")
-        self.utc_label.setText(f"{utc_time} UTC")
-
-        if date_str:
-         self.data_label.setText(date_str)
-        if date_utc_str:
-         self.data_utc_label.setText(date_utc_str)
+     self.ora_label.setText(time_str)
+     self.utc_label.setText(f"{utc_time} UTC")
+     if date_str:
+        self.data_label.setText(date_str)
         
     
     def update_date(self, date_str):
@@ -466,7 +336,7 @@ class HeaderView:
      self.data_utc_label.setStyleSheet(f"font-size: {td}; color: #a0c4e8; font-weight: bold;")  # AGGIUNTO
      self.ora_label.setStyleSheet(f"font-size: {td}; color: white; font-family: monospace;")
      self.utc_label.setStyleSheet(f"font-size: {td}; color: #a0c4e8; font-family: monospace;")
-     self.state_label.setStyleSheet(f"font-size: {ts}; font-weight: bold;")
+     #self.state_label.setStyleSheet(f"font-size: {ts}; font-weight: bold;")
 
      # Logo resize
      logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "ingvlogo.png")
@@ -477,3 +347,44 @@ class HeaderView:
                           Qt.AspectRatioMode.KeepAspectRatio,
                           Qt.TransformationMode.SmoothTransformation)
         )
+
+    def _draw_shield_icon(self, color, size=None):
+     """Disegna un'icona a scudo colorata dinamicamente (nessun file esterno)"""
+     if size is None:
+        size = self.scale(24)
+
+     pixmap = QPixmap(size, size)
+     pixmap.fill(Qt.GlobalColor.transparent)
+
+     painter = QPainter(pixmap)
+     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+     w, h = size, size
+     path = QPainterPath()
+     # Punto in alto al centro
+     path.moveTo(w * 0.5, h * 0.05)
+     # Lato destro verso il basso
+     path.cubicTo(w * 0.85, h * 0.15, w * 0.95, h * 0.20, w * 0.95, h * 0.20)
+     path.lineTo(w * 0.95, h * 0.55)
+     path.cubicTo(w * 0.95, h * 0.78, w * 0.75, h * 0.92, w * 0.5, h * 0.98)
+     path.cubicTo(w * 0.25, h * 0.92, w * 0.05, h * 0.78, w * 0.05, h * 0.55)
+     path.lineTo(w * 0.05, h * 0.20)
+     path.cubicTo(w * 0.05, h * 0.20, w * 0.15, h * 0.15, w * 0.5, h * 0.05)
+     path.closeSubpath()
+
+     painter.setPen(QPen(QColor("white"), max(1, size * 0.04)))
+     painter.setBrush(QColor(color))
+     painter.drawPath(path)
+
+     # Segno di spunta al centro (facoltativo, stile "sicurezza attiva")
+     check = QPainterPath()
+     check.moveTo(w * 0.30, h * 0.52)
+     check.lineTo(w * 0.45, h * 0.68)
+     check.lineTo(w * 0.72, h * 0.35)
+     painter.setPen(QPen(QColor("white"), max(1.5, size * 0.07),
+                         Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
+                         Qt.PenJoinStyle.RoundJoin))
+     painter.drawPath(check)
+
+     painter.end()
+     return pixmap

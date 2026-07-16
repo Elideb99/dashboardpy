@@ -48,6 +48,7 @@ class ControlsView:
             background-color: {hover_color};
         }}
         """
+        
         button.setStyleSheet(base_style)
         return button
     

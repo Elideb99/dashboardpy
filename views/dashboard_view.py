@@ -8,6 +8,7 @@ from views.components.map_widget import MapWidget
 from views.components.controls import ControlsView
 from views.dialogs import AlarmDialog
 from utils.helpers import compute_ui_scale
+from models.system_model import SystemStatus
 
 
 
@@ -28,8 +29,9 @@ class DashboardView(QMainWindow):
         
         self.setWindowTitle("Sala di Monitoraggio - Simulatore")
         self.setMinimumSize(900, 600) # dimensione minima
-        self.setStyleSheet("background-color: #1C2B40; color: #ffffff;")
-        # applica uno stile css alla finestra
+        self.setStyleSheet(
+        f"background-color: #0F1521; color: #ffffff;"
+         )        # applica uno stile css alla finestra
 
         self.tabs_view = None
         self.header = None
@@ -38,12 +40,14 @@ class DashboardView(QMainWindow):
         
         self._setup_ui()
         self._setup_timers()
+      
     
     def scale(self, v):
         return max(1, int(v * self.ui_scale))
     
     def _setup_ui(self):
         central = QWidget()
+        central.setStyleSheet("background-color: #0D1520;")
         main_layout = QVBoxLayout() # crea un layout verticale per organizzare i componenti
         main_layout.setContentsMargins(self.scale(15), self.scale(15), self.scale(15), self.scale(15))
         main_layout.setSpacing(self.scale(15))
@@ -72,32 +76,19 @@ class DashboardView(QMainWindow):
         self.map_widget.create()
         self.map_widget.set_on_loaded(self.controller.on_map_loaded)
         self.map_widget.map_page.zone_clicked.connect(self._on_map_zone_clicked)
-
-        # self.btn_24h.clicked.connect(lambda: self.set_time_filter("24h"))
-        # self.btn_48h.clicked.connect(lambda: self.set_time_filter("48h"))
-        # self.btn_7d.clicked.connect(lambda: self.set_time_filter("7d"))
         
         self.map_widget.set_on_filter(self.controller.on_filter_changed)
 
 
         self.controller.map_service.set_webview(self.map_widget.webview)
         
-        # Layout ratios
-        # if self.ui_scale >= 2.5:
-        #     ratio_left, ratio_right = 4, 6
-        # elif self.ui_scale >= 1.8:
-        #     ratio_left, ratio_right = 4, 6
-        # elif self.ui_scale >= 1.5:
-        #     ratio_left, ratio_right = 5, 5 #5:5
-        # else:
-        #     ratio_left, ratio_right = 6, 4 #6:4
-        # Layout ratios - mappa e log sempre 50:50
+
         if self.ui_scale >= 2.5:
-         ratio_left, ratio_right = 5, 5
+         ratio_left, ratio_right = 4, 6
         elif self.ui_scale >= 1.5:
-         ratio_left, ratio_right = 6, 4
+         ratio_left, ratio_right = 4, 6
         else:
-         ratio_left, ratio_right = 6, 4  # mai più largo dei log
+         ratio_left, ratio_right = 5, 5  # mai più largo dei log
 
         base_font_px = max(12, int(14 * self.ui_scale))
         self.setStyleSheet(
@@ -130,92 +121,27 @@ class DashboardView(QMainWindow):
     # ─── UI UPDATE METHODS ───────────────────────────────────
     def update_ui(self):
         """Aggiorna tutta l'UI in base al model"""
-        # self.header.update_state(self.controller.model.status.value, 
-        #                          self.controller.model.get_status_color())
         self._update_logs()
+        self._update_state_from_model()
+
+ 
     
     def _update_logs(self):
         """Aggiorna i tab dei log"""
-        for zone, logs in self.controller.model.tab_logs.items():
-            if zone in self.tabs_view.tab_logs:
-                self.tabs_view.update_logs(zone, logs)
-        self._update_state_from_logs()
+        self.controller.render_logs_filtrati()
 
-    # def _update_state_from_logs(self, finestra=10):
-    #  """
-    #  Aggiorna lo stato sistema in base alla magnitudo massima
-    #  tra gli ultimi `finestra` eventi nel log GENERALE.
-    #  """
-    #  logs = self.controller.model.tab_logs.get("GENERALE", [])
-    #  if not logs:
-    #     self.header.update_state_from_event(None)
-    #     return
+        # self._update_state_from_logs()
 
-    #  recenti = logs[-finestra:] if len(logs) > finestra else logs
+    def _update_state_from_model(self):
+        """Lo stato lo decide il model, la view lo mostra e basta."""
+        evento = self.controller.model.evento_stato
+        if evento is None:
+            self.header.update_state_from_event(None)
+            return
+        mag = self._parse_magnitudo(evento.get("magnitudine"))
+        self.header.update_state_from_event(mag, evento.get("data"))
 
-    #  mag_max = None
-    #  ultimo_ts = None
-    #  for entry in recenti:
-    #     # adatta la chiave se nel tuo dict si chiama diversamente (es. "mag", "magnitude")
-    #     mag = entry.get("magnitudo") or entry.get("mag") or entry.get("magnitude")
-    #     if mag is None:
-    #         continue
-    #     try:
-    #         mag = float(mag)
-    #     except (TypeError, ValueError):
-    #         continue
-    #     if mag_max is None or mag > mag_max:
-    #         mag_max = mag
-    #         ultimo_ts = entry.get("timestamp") or entry.get("orario") or entry.get("ora")
 
-    #  self.header.update_state_from_event(mag_max, ultimo_ts)
-
-    # def _update_state_from_logs(self):
-    #  """
-    #  Aggiorna lo stato sistema in base alla magnitudo
-    #  dell'ultimo evento registrato nel log GENERALE.
-    #  """
-    #  logs = self.controller.model.tab_logs.get("GENERALE", [])
-    #  if not logs:
-    #     self.header.update_state_from_event(None)
-    #     return
-
-    #  ultimo = logs[-1]  # presuppone eventi in ordine cronologico crescente
-    #  mag = ultimo.get("magnitudo") or ultimo.get("mag") or ultimo.get("magnitude")
-    #  ts = ultimo.get("timestamp") or ultimo.get("orario") or ultimo.get("ora")
-
-    #  try:
-    #     mag = float(mag)
-    #  except (TypeError, ValueError):
-    #     mag = None
-
-    #  self.header.update_state_from_event(mag, ts)
-
-    def _update_state_from_logs(self):
-     """
-     Aggiorna lo stato sistema in base alla magnitudo
-     dell'ultimo evento registrato nel log GENERALE.
-     """
-     logs = self.controller.model.tab_logs.get("GENERALE", [])
-     
-     if not logs:
-        self.header.update_state_from_event(None)
-        return
-     
-     print("LOG ULTIMO:", logs[0])
-
-     ultimo = logs[-1]  # vedi nota sotto sull'ordinamento
-
-     mag_raw = (
-     ultimo.get("magnitudine")
-     or ultimo.get("magnitudo")
-     or ultimo.get("mag")
-     or ultimo.get("magnitude")
-)
-     ts = ultimo.get("timestamp") or ultimo.get("orario") or ultimo.get("ora") or ultimo.get("data_ora")
-
-     mag = self._parse_magnitudo(mag_raw)
-     self.header.update_state_from_event(mag, ts)
 
     @staticmethod
     def _parse_magnitudo(mag_raw):
@@ -262,29 +188,36 @@ class DashboardView(QMainWindow):
         """Resetta il titolo"""
         self.setWindowTitle("Sala di Monitoraggio - Simulatore") # ripristina il titolo originale
     
+   
     def resizeEvent(self, event):
-        """Gestisce il resize"""
-        super().resizeEvent(event)
-        self.header.resize(self.width()) # aggiorna l'altezza della mappa in base alla scala
-        if self.map_widget:
-            self.map_widget.update_height(self.ui_scale)
-            self.controller.refresh_map() # richiede un refresh della mappa
+     """Gestisce il ridimensionamento della finestra."""
+     super().resizeEvent(event)
+
+     if self.header:
+        self.header.resize(self.width())
+
+     if self.map_widget:
+        self.map_widget.update_height(self.ui_scale)
+
+        # Aspetta che il layout abbia terminato il ridimensionamento.
+        # self.resize_map_timer.start(200)
+        self.controller.refresh_map()
 
     def _on_map_zone_clicked(self, zona):
      tab_nomi = ["GENERALE", "CAMPI FLEGREI", "VESUVIO", "ISCHIA"]
      if zona not in tab_nomi:
         return
-     idx_zona    = tab_nomi.index(zona)
-     idx_attuale = self.tabs_view.tabs.currentIndex()
-     if idx_attuale == idx_zona:
-        self.tabs_view.tabs.setCurrentIndex(0)  # toggle → torna a GENERALE
-     else:
-        self.tabs_view.tabs.setCurrentIndex(idx_zona)
+     idx_zona = tab_nomi.index(zona)
+
+    # Seleziona la zona e la mantiene selezionata
+     self.tabs_view.tabs.setCurrentIndex(idx_zona)
 
     def set_time_filter(self, value):
-     if self.webview:
-        self.webview.page().runJavaScript(f"""
+     if self.map_widget and self.map_widget.webview:
+        self.map_widget.webview.page().runJavaScript(f"""
             if (window.setTimeFilter) {{
                 window.setTimeFilter("{value}");
+            }} else {{
+                console.warn("setTimeFilter non ancora pronta, valore in coda");
             }}
         """)

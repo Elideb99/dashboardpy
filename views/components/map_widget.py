@@ -9,13 +9,19 @@ from servers.thread import load_map_filters
 
 class MapPage(QWebEnginePage):
     zone_clicked = pyqtSignal(str)
+    replay_requested = pyqtSignal(str) 
 
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
         if url.scheme() == 'app' and url.host() == 'tab':
             zona = url.path().strip('/').replace('-', ' ')
             self.zone_clicked.emit(zona)
             return False
+        if url.scheme() == 'app' and url.host() == 'replay':     # ← nuovo
+            azione = url.path().strip('/')
+            self.replay_requested.emit(azione)
+            return False
         return super().acceptNavigationRequest(url, nav_type, is_main_frame)
+
 
 
 class MapWidget:

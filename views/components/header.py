@@ -168,14 +168,18 @@ class HeaderView:
      layout.addWidget(cal_icon)
 
      # ── Blocco data (data + giorno settimana) ─────────────────
+
      data_block = QVBoxLayout()
      data_block.setSpacing(0)
 
      self.data_label = QLabel(datetime.now().strftime("%d/%m/%Y"))
-     self.data_label.setStyleSheet(f"font-size: {self.fs(18)}; font-weight: bold; color: white;")
+     self.data_label.setStyleSheet(f"font-size: {self.fs(18)};color: white;")
 
+     self.data_utc_label = QLabel(datetime.utcnow().strftime("%d/%m/%Y") + " UTC")
+     self.data_utc_label.setStyleSheet(f"font-size: {self.fs(13)}; font-family: monospace; color: #7E8CA3;")
 
      data_block.addWidget(self.data_label)
+     data_block.addWidget(self.data_utc_label)
      layout.addLayout(data_block)
 
      # ── Separatore verticale ───────────────────────────────────
@@ -210,9 +214,6 @@ class HeaderView:
      ora_block.addWidget(self.utc_label)
      layout.addLayout(ora_block)
 
-     # data_utc_label la teniamo per compatibilità con update_clock, ma nascosta
-     self.data_utc_label = QLabel()
-     self.data_utc_label.setVisible(False)
 
      return container
 
@@ -311,6 +312,8 @@ class HeaderView:
      self.utc_label.setText(f"{utc_time} UTC")
      if date_str:
         self.data_label.setText(date_str)
+     if date_utc_str:
+        self.data_utc_label.setText(f"{date_utc_str} UTC")
         
     
     def update_date(self, date_str):
@@ -332,11 +335,10 @@ class HeaderView:
 
      self.title1.setStyleSheet(f"font-size: {t1}; font-weight: bold; color: white;")
      self.title2.setStyleSheet(f"font-size: {t2}; color: #cccccc;")
-     self.data_label.setStyleSheet(f"font-size: {td}; color: white; font-weight: bold;")
-     self.data_utc_label.setStyleSheet(f"font-size: {td}; color: #a0c4e8; font-weight: bold;")  # AGGIUNTO
+     self.data_label.setStyleSheet(f"font-size: {td}; color: white; font-family: monospace;")
+     self.data_utc_label.setStyleSheet(f"font-size: {td}; color: #a0c4e8; font-family: monospace;")  # AGGIUNTO
      self.ora_label.setStyleSheet(f"font-size: {td}; color: white; font-family: monospace;")
      self.utc_label.setStyleSheet(f"font-size: {td}; color: #a0c4e8; font-family: monospace;")
-     #self.state_label.setStyleSheet(f"font-size: {ts}; font-weight: bold;")
 
      # Logo resize
      logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "ingvlogo.png")

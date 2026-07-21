@@ -76,6 +76,7 @@ class DashboardView(QMainWindow):
         self.map_widget.create()
         self.map_widget.set_on_loaded(self.controller.on_map_loaded)
         self.map_widget.map_page.zone_clicked.connect(self._on_map_zone_clicked)
+        self.map_widget.map_page.replay_requested.connect(self.controller.on_replay_sciame_richiesto)
         
         self.map_widget.set_on_filter(self.controller.on_filter_changed)
 
@@ -83,12 +84,7 @@ class DashboardView(QMainWindow):
         self.controller.map_service.set_webview(self.map_widget.webview)
         
 
-        if self.ui_scale >= 2.5:
-         ratio_left, ratio_right = 4, 6
-        elif self.ui_scale >= 1.5:
-         ratio_left, ratio_right = 4, 6
-        else:
-         ratio_left, ratio_right = 5, 5  # mai più largo dei log
+        ratio_left, ratio_right = 5, 5  # mai più largo dei log
 
         base_font_px = max(12, int(14 * self.ui_scale))
         self.setStyleSheet(
@@ -167,9 +163,7 @@ class DashboardView(QMainWindow):
     
     def _update_event_title(self):
         """Aggiorna il titolo con il tempo dall'ultimo evento"""
-        time_str = self.controller.get_time_since_last_event()
-        if time_str:
-            self.setWindowTitle(f"Sala di Monitoraggio - Ultimo evento: {time_str}")
+        self.setWindowTitle(f"Sala di Monitoraggio")
     
     def flash_title(self):
         """Lampeggia il titolo"""
@@ -200,7 +194,6 @@ class DashboardView(QMainWindow):
         self.map_widget.update_height(self.ui_scale)
 
         # Aspetta che il layout abbia terminato il ridimensionamento.
-        # self.resize_map_timer.start(200)
         self.controller.refresh_map()
 
     def _on_map_zone_clicked(self, zona):

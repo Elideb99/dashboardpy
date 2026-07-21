@@ -1,72 +1,3 @@
-# import json
-# import os
-# from PyQt6.QtCore import QThread
-# from servers.serverkafka.kafka import KafkaWorker
-# from servers.serenade.serenade import SerenadeWorker
-
-# def load_config():
-#     # Ottieni la directory dove si trova questo file (servers/)
-#     current_dir = os.path.dirname(os.path.abspath(__file__))
-#     config_path = os.path.join(current_dir, "config.json")
-    
-#     #print(f"Caricamento config da: {config_path}")  # Debug
-    
-#     with open(config_path) as f:
-#         return json.load(f)
-
-# # def start_data_server():
-# #     config = load_config()
-# #     thread = QThread()
-    
-# #     if config["data_source"] == "kafka":
-# #         print("USO KAFKA")
-# #         worker = KafkaWorker()
-# #     elif config["data_source"] == "serenade":
-# #         print("USO SERENADE")
-# #         worker = SerenadeWorker(config["serenade"])
-# #     else:
-# #         raise Exception("Sorgente dati non valida")
-    
-# #     worker.moveToThread(thread)
-# #     thread.started.connect(worker.run)
-# #     thread.start()
-    
-# #     return thread, worker
-
-# def start_data_server():
-#     config = load_config()
-#     thread = QThread()
-    
-#     if config["data_source"] == "kafka":
-#         print("USO KAFKA")
-#         worker = KafkaWorker()
-#     elif config["data_source"] == "serenade":
-#         print("USO SERENADE")
-#         worker = SerenadeWorker(config["serenade"])
-#     else:
-#         raise Exception("Sorgente dati non valida")
-    
-#     worker.moveToThread(thread)
-#     thread.started.connect(worker.run)
-#     # ← NON fare thread.start() qui
-
-#     return thread, worker
-
-# def load_map_filters():
-#     config = load_config()
-#     return config.get("map_filters", {
-#         "default": "24h",
-#         "options": [
-#             {"key": "24h",   "label": "24h"},
-#             {"key": "48h",   "label": "48h"},
-#             {"key": "7gg",   "label": "7gg"},
-#             {"key": "14gg",  "label": "14gg"},
-#             {"key": "1mese", "label": "1 Mese"},
-#         ]
-#     })
-
-
-
 
 from configparser import ConfigParser
 
@@ -116,9 +47,6 @@ def start_data_server(config: ConfigParser):
         # Se KafkaWorker non accetta parametri:
         worker = KafkaWorker()
 
-        # Quando modificherai KafkaWorker per ricevere il server,
-        # potrai usare:
-        # worker = KafkaWorker(server=server)
 
     elif data_source == "serenade":
         print("USO SERENADE")
@@ -184,47 +112,6 @@ def start_data_server(config: ConfigParser):
     return thread, worker
 
 
-# def load_map_filters(config=None):
-#     """
-#     Legge la configurazione dei filtri della mappa da config.ini.
-#     """
-
-#     default_filter = config.get(
-#         "MAP_FILTERS",
-#         "default",
-#         fallback="24h",
-#     ).strip()
-
-#     raw_options = config.get(
-#         "MAP_FILTERS",
-#         "options",
-#         fallback="24h,48h,7gg,14gg,1mese",
-#     )
-
-#     keys = [
-#         key.strip()
-#         for key in raw_options.split(",")
-#         if key.strip()
-#     ]
-
-#     options = []
-
-#     for key in keys:
-#         label = config.get(
-#             "MAP_FILTER_LABELS",
-#             key,
-#             fallback=key.upper(),
-#         )
-
-#         options.append({
-#             "key": key,
-#             "label": label,
-#         })
-
-#     return {
-#         "default": default_filter,
-#         "options": options,
-#     }
 
 def load_map_filters(config=None):
     """

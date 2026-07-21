@@ -18,14 +18,6 @@ class ControlsView:
         layout = QHBoxLayout()
         layout.setSpacing(self.scale(15))
         
-        # Crea pulsanti
-        # self.btn_event = self._create_button("SIMULA EVENTO", "#213B64", "#2A4A7D")
-        # self.btn_swarm = self._create_button("ATTIVA SCIAME", "#ef6c00", "#e65100")
-        # self.btn_reset = self._create_button("RESET SISTEMA", "#c62828", "#b71c1c")
-        
-        # layout.addWidget(self.btn_event)
-        # layout.addWidget(self.btn_swarm)
-        # layout.addWidget(self.btn_reset)
         
         parent_layout.addLayout(layout)
     
@@ -55,6 +47,4 @@ class ControlsView:
     def set_controller(self, controller):
         """Imposta il controller e collega i pulsanti"""
         self.controller = controller
-        # self.btn_event.clicked.connect(self.controller.simulate_event)
-        # self.btn_swarm.clicked.connect(self.controller.activate_swarm)
-        # self.btn_reset.clicked.connect(self.controller.reset)
+   

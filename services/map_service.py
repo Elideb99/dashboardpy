@@ -108,7 +108,6 @@ class MapService:
      """Passa tutti gli eventi in una sola chiamata JS."""
      if not self.map_ready or not self.webview:
         return
-     import json
      js = f'aggiungiEventiBatch({json.dumps(eventi)});'
      self.webview.page().runJavaScript(js)
 
@@ -121,7 +120,13 @@ class MapService:
      Fondamentale con flussi Kafka ad alta frequenza."""
      if not self.map_ready or not self.webview:
         return
-     import json
      args = json.dumps([chiave, lat, lng, mag, data, qualita, area])
      js = f'if (typeof upsertEvento !== "undefined") upsertEvento(...{args});'
+     self.webview.page().runJavaScript(js)
+
+    def replay_sciame(self, eventi: list, intervallo_ms=400):
+     if not self.map_ready or not self.webview:
+        return
+     
+     js = f'replaySciame({json.dumps(eventi)}, {intervallo_ms});'
      self.webview.page().runJavaScript(js)

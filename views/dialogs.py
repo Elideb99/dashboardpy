@@ -17,12 +17,17 @@ class AlarmDialog(QMessageBox):
         self._setup_content()
         self._setup_style()
 
-        self.setStandardButtons(QMessageBox.StandardButton.Ok)
-        ok_button = self.button(QMessageBox.StandardButton.Ok)
-        ok_button.setIcon(QIcon())
-
+        # Rimuove il pulsante OK standard
+        self.setStandardButtons(QMessageBox.StandardButton.NoButton)
 
         self.setMinimumSize(self.scale(500), self.scale(300))
+
+    # ─── MODIFICA: Gestione della "X" di chiusura ──────────────────────
+    def closeEvent(self, event):
+        """Forza la chiusura e l'accettazione del dialogo quando si preme la X"""
+        self.accept()  # Chiude il dialogo e restituisce il controllo alla finestra principale
+        event.accept() # Conferma l'evento di chiusura a livello di sistema operativo
+    # ──────────────────────────────────────────────────────────────────
 
     def scale(self, v):
         return max(1, int(v * self.ui_scale))

@@ -58,7 +58,7 @@ class ReplayFileWorker(KafkaWorker):
                      vedere lo sciame evolvere.
     """
 
-    def __init__(self, files, intervallo_ms=1000):
+    def __init__(self, files, intervallo_ms=800):
         super().__init__()
         self.files = [files] if isinstance(files, str) else list(files)
         self.intervallo_ms = intervallo_ms
@@ -105,3 +105,5 @@ class ReplayFileWorker(KafkaWorker):
     def stop(self):
         self.running = False
         print("[REPLAY FILE] stop")
+
+        

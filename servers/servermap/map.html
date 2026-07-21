@@ -67,6 +67,44 @@ html, body {
     flex-shrink: 0;
 }
 
+.replay-box {
+    position: fixed;
+    right: clamp(10px, 2vw, 30px);   /* ancorato a destra */
+    left: auto;
+    bottom: clamp(34px, 5vh, 54px);  /* un po' più su, così non copre l'attribution "Leaflet | ©…" */
+    transform: none;
+    width: min(58%, 640px);          /* più stretto, resta nella metà destra */
+    background: rgba(20, 28, 40, 0.97);
+    border: 1px solid #4175C0; border-radius: 12px;
+    color: #fff; font-family: monospace;
+    z-index: 1200; backdrop-filter: blur(6px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    display: none;
+}
+.replay-box.attivo { display: block; }
+.replay-box .rb-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; border-bottom: 1px solid #2a3a52;
+}
+.replay-box .rb-title { font-weight: bold; color: #a0c4e8; }
+.replay-box .rb-count { opacity: .75; }
+.replay-box .rb-close {
+    background: none; border: none; color: #a0c4e8;
+    cursor: pointer; font-size: 1.1em; margin-left: 10px;
+}
+.replay-box .rb-body { display: flex; gap: 16px; padding: 12px 14px; align-items: center; }
+.replay-box .rb-plot {
+    width: 240px; height: 180px;
+    background: #101828; border: 1px solid #2a3a52; border-radius: 8px;
+    overflow: hidden;
+}
+.replay-box .rb-caption { text-align: center; opacity: .55; font-size: .8em; margin-top: 4px; }
+.replay-box .rb-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.replay-box .rb-mag { font-size: 2.2em; font-weight: bold; line-height: 1; }
+.replay-box .rb-meta { opacity: .8; margin-top: 6px; }
+.replay-box .rb-bar { height: 6px; background: #2a3a52; border-radius: 3px; margin-top: 14px; overflow: hidden; }
+.replay-box .rb-bar > div { height: 100%; width: 0; background: #4175C0; transition: width .25s; }
+
 /* ─── Popup Leaflet ──────────────────────────────────────── */
 .leaflet-popup-content-wrapper {
     background: #192230;
@@ -93,6 +131,7 @@ html, body {
 
 <body>
 <div id="map"></div>
+
 <div class="legend">
     <h4>Stato Attività</h4>
     <div class="row"><div class="color-box" style="background:#1B7A3D;"></div> M &lt; 1.0</div>
@@ -101,12 +140,47 @@ html, body {
     <div class="row"><div class="color-box" style="background:#e53935;"></div> M ≥ 3.0</div>
 
     <div class="row" style="margin-top:8px; padding-top:8px; border-top:1px solid #33415c;">
-    <svg width="34" height="24" style="flex-shrink:0;" viewBox="0 0 34 24">
-        <circle cx="9" cy="12" r="9" fill="#9aa5b1" stroke="#ffffff" stroke-width="1"/>
-        <circle cx="27" cy="12" r="3.5" fill="#9aa5b1" stroke="#ffffff" stroke-width="1"/>
-    </svg>
-    <span>Dimensione = quanto è recente<br><small style="opacity:0.75;">grande = recente · piccolo = vecchio</small></span>
+        <svg width="34" height="24" style="flex-shrink:0;" viewBox="0 0 34 24">
+            <circle cx="9" cy="12" r="9" fill="#9aa5b1" stroke="#ffffff" stroke-width="1"/>
+            <circle cx="27" cy="12" r="3.5" fill="#9aa5b1" stroke="#ffffff" stroke-width="1"/>
+        </svg>
+        <span>Dimensione = quanto è recente<br><small style="opacity:0.75;">grande = recente · piccolo = vecchio</small></span>
+    </div>
+
+    <div class="row" style="margin-top:8px; padding-top:8px; border-top:1px solid #33415c;">
+        <button id="btn-replay-sciame"
+                onclick="window.location.href='app://replay/sciame';"
+                style="background:#1C2B40; color:#a0c4e8; border:1px solid #2A4A7D;
+                       border-radius:4px; padding:6px 10px; font-family:monospace;
+                       font-size:0.9em; cursor:pointer; width:100%;">
+            ▶ Replay ultimo sciame
+        </button>
+    </div>
 </div>
+
+<div class="replay-box" id="replay-box">
+    <div class="rb-head">
+        <span class="rb-title">▶ Replay ultimo sciame</span>
+        <span>
+            <span class="rb-count" id="rb-count">0/0</span>
+            <button class="rb-close" onclick="window.clearReplaySciame();">✕</button>
+        </span>
+    </div>
+    <div class="rb-body">
+        <div>
+            <!-- <svg class="rb-plot" id="rb-plot" width="220" height="170" viewBox="0 0 220 170"></svg> -->
+             <div>
+    <div class="rb-plot" id="rb-plot"></div>
+    <div class="rb-caption">posizione delle scosse sulla caldera</div>
+</div>
+            <div class="rb-caption">posizione relativa delle scosse</div>
+        </div>
+        <div class="rb-info">
+            <div class="rb-mag" id="rb-mag">—</div>
+            <div class="rb-meta" id="rb-meta">in attesa…</div>
+            <div class="rb-bar"><div id="rb-progress"></div></div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -114,10 +188,7 @@ html, body {
 //  UTILITY – dimensioni responsive
 // ══════════════════════════════════════════════════════════════
 
-/**
- * @param {string} stato  – 'NORMALE' | 'ATTENZIONE' | 'ALLARME' | 'SCIAME'
- * @returns {number}
- */
+
 function markerRadius(stato) {
     const base = Math.max(8, Math.round(window.innerWidth / 160));
     // ~12 a 1920px · ~20 a 3200px · ~27 a 4320px · ~40 a 6400px
@@ -228,27 +299,6 @@ function getVulcaniBounds() { // restituisce array di coordinate [[lat,lang], [l
     return Object.values(vulcaniData).map(v => [v.lat, v.lng]);
 }
 
-// function fitToVulcani() { // zoom automatico fichè tutti e 3 i vulcani siano visibili
-//     if (!map) return;
-//     map.fitBounds(getVulcaniBounds(), fitPadding());
-// }
-
-// function handleResize() {
-//     if (!map) return;
-//     clearTimeout(resizeTimeout);
-//     resizeTimeout = setTimeout(() => {
-//         map.invalidateSize();
-//         fitToVulcani();
-//         // Ridisegna marker con raggio aggiornato
-//         for (const zona in vulcaniData) {
-//             const v = vulcaniData[zona];
-//             if (v.marker) {
-//                 v.marker.setRadius(markerRadius(v.stato));
-//             }
-//         }
-//     }, 250);
-
-// }
 
 function handleResize() {
     if (!map) return;
@@ -321,6 +371,8 @@ window.setBaseMap = function(url, attribution, minZoom , maxZoom) {
 
         if (currentLayer) { map.removeLayer(currentLayer); }
 
+        window._baseMapCfg = { url: url, attribution: attribution || '', maxZoom: maxZoom || 18 };
+
         currentLayer = L.tileLayer(url, {
             attribution: attribution || '',
             minZoom: minZoom || 0,
@@ -357,7 +409,7 @@ function aggiornaColore(zona, stato, magnitudo) { // aggiorna il colore del vulc
 if (v.circle) map.removeLayer(v.circle);
 
 const magTesto = (magnitudo !== undefined && magnitudo !== null)
-    ? `<br>Ultima magnitudo: <b>M${Number(magnitudo).toFixed(1)}</b>`
+    ? `<br>Ultima magnitudo: <b>M${magnitudo}</b>`
     : '';
 
 // Genera i punti di un cerchio approssimato come poligono
@@ -416,14 +468,6 @@ window.refreshMapView = function() {
     }
 };
 
-// window.refreshMapView = function() {
-//     if (map && isInitialized) {
-//         setTimeout(() => {
-//             map.invalidateSize();
-//             fitToVulcani();
-//         }, 100);
-//     }
-// };
 
 window.zoomToVulcano = function(zona) { // centra la mappa su un vulcano specifico e apre il pop up informativo
     if (!map || !isInitialized) return; // se la mappa non esiste o non è stata inizializzata esce senza fare nulla
@@ -452,25 +496,6 @@ const eventiLayer  = [];
 
 window.currentFilter = "24h";
 
-
-
-/*function magnitudo2raggio(mag) {
-
-    if (mag === null || mag === undefined) {
-        return 7;
-    }
-
-    mag = Number(mag);
-
-    // raggio minimo visibile
-    const base = 7;
-
-    // crescita con magnitudo
-    const scala = mag * mag * 2.2;
-
-    // limite massimo
-    return Math.min(base + scala, 40);
-}*/
 
 /**
  * Calcola il raggio del pallino in base al tempo trascorso.
@@ -528,7 +553,6 @@ function tempo2raggio(dataEvento) {
 }
 
 function magnitudo2colore(mag) {
-    //if (mag === null || mag === undefined) return '#6b7280';
     if (mag >= 3.0) return '#e53935';
     if (mag >= 2.0) return '#ff9800';
     if (mag >= 1.0) return '#f9d71c';
@@ -555,7 +579,7 @@ function _disegnaEvento(e) {
     const raggio = tempo2raggio(e.data);
     const colore = magnitudo2colore(e.mag);
     const magStr = (e.mag !== null && e.mag !== undefined)
-        ? `Md${Number(e.mag).toFixed(1)}`
+        ? `Md${e.mag}`
         : 'M n.d.';
 
     const area = e.area || 'n.d.';
@@ -611,17 +635,6 @@ function applyFilter() {
 
 // ── API esposte a Python ───────────────────────────────────────
 
-/*window.aggiungiEvento = function(lat, lng, mag, data, qualita , area) {
-    if (!map || !isInitialized) return;
-    const e = { lat, lng, mag, data, qualita, area };
-    eventiMaster.push(e);
-    // disegna solo se rientra nel filtro attivo
-    const cutoff = Date.now() - filterDelta(window.currentFilter);
-    let ts = data ? Date.parse(data.replace(' ', 'T')) : NaN;
-    if (isNaN(ts) || ts >= cutoff) {
-        _disegnaEvento(e);
-    }
-};*/
 
 window.aggiungiEvento = function(lat, lng, mag, data, qualita, area) {
     if (!map || !isInitialized) return;
@@ -672,27 +685,103 @@ window.aggiungiEventiBatch = function(eventi) {
     });
 };
 
-/*
-window.setTimeFilter = function(value) {
-    window.currentFilter = value;
-    applyFilter();          // ridisegna con il nuovo cutoff
+// collassa le revisioni della stessa scossa (righe entro tollSec) tenendo la mag più alta
+function _rbCollassa(eventi, tollSec = 2) {
+    const parsed = eventi
+        .map(e => ({ ...e, _ts: Date.parse(String(e.data).replace(' ', 'T')) }))
+        .filter(e => !isNaN(e._ts))
+        .sort((a, b) => a._ts - b._ts);
+    const out = [];
+    for (const e of parsed) {
+        const last = out[out.length - 1];
+        if (last && (e._ts - last._ts) <= tollSec * 1000) {
+            if (Number(e.mag) > Number(last.mag)) out[out.length - 1] = e;  // stessa scossa: tieni la più forte
+        } else {
+            out.push(e);
+        }
+    }
+    return out;
+}
+
+
+
+let _rbMap = null;              // mini-mappa del riquadro
+let _rbMarkers = [];            // pallini attualmente disegnati nel riquadro
+
+function _rbInitMap() {
+    if (_rbMap) return _rbMap;
+    _rbMap = L.map('rb-plot', {
+        zoomControl: false, attributionControl: false,
+        dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+        boxZoom: false, keyboard: false, touchZoom: false
+    });
+    const cfg = window._baseMapCfg || { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 18 };
+    L.tileLayer(cfg.url, { maxZoom: cfg.maxZoom }).addTo(_rbMap);
+    return _rbMap;
+}
+
+window.replaySciame = function(eventi, intervalloMs) {
+    intervalloMs = 1200;
+    eventi = _rbCollassa(eventi);
+    if (!eventi.length) return;
+
+    const box   = document.getElementById('replay-box');
+    const count = document.getElementById('rb-count');
+    const magEl = document.getElementById('rb-mag');
+    const meta  = document.getElementById('rb-meta');
+    const prog  = document.getElementById('rb-progress');
+
+    if (window._replayTimer) clearTimeout(window._replayTimer);
+    box.classList.add('attivo');
+
+    const mm = _rbInitMap();
+    _rbMarkers.forEach(m => mm.removeLayer(m));
+    _rbMarkers = [];
+
+    // la mappa dentro un box nascosto non calcola bene le dimensioni:
+    // forza il ricalcolo e inquadra tutte le scosse dello sciame
+    setTimeout(() => {
+        mm.invalidateSize();
+        const b = L.latLngBounds(eventi.map(e => [+e.lat, +e.lng]));
+        mm.fitBounds(b.pad(0.4), { maxZoom: 14 });
+        avvia();
+    }, 60);
+
+    let i = 0;
+    function avvia() {
+        i = 0;
+        step();
+    }
+    function step() {
+        if (i >= eventi.length) { meta.textContent = 'Replay terminato'; return; }
+        const e = eventi[i];
+
+        _rbMarkers.forEach(m => m.setStyle({ fillOpacity: 0.3, opacity: 0.3 }));
+
+        const c = L.circleMarker([+e.lat, +e.lng], {
+            radius: 4 + (Number(e.mag) || 0) * 3,
+            color: '#fff', weight: 1, opacity: 1,
+            fillColor: magnitudo2colore(Number(e.mag)), fillOpacity: 1
+        }).addTo(mm);
+        _rbMarkers.push(c);
+
+        magEl.textContent = (e.mag != null) ? `M${e.mag}` : 'M n.d.';
+        magEl.style.color = magnitudo2colore(Number(e.mag));
+        meta.textContent  = `${e.area || 'n.d.'} · ${e.data || ''}`;
+        count.textContent = `${i + 1}/${eventi.length}`;
+        prog.style.width  = `${Math.round((i + 1) / eventi.length * 100)}%`;
+
+        i++;
+        window._replayTimer = setTimeout(step, intervalloMs);
+    }
 };
-*/
-// window.setTimeFilter = function(value) {
-//     if (!map || !isInitialized) {
-//         const iv = setInterval(() => {
-//             if (map && isInitialized) {
-//                 clearInterval(iv);
-//                 window.currentFilter = value;
-//                 applyFilter();
-//             }
-//         }, 100);
-//         setTimeout(() => clearInterval(iv), 5000);
-//         return;
-//     }
-//     window.currentFilter = value;
-//     applyFilter();
-// };
+
+window.clearReplaySciame = function() {
+    if (window._replayTimer) { clearTimeout(window._replayTimer); window._replayTimer = null; }
+    if (_rbMap) { _rbMarkers.forEach(m => _rbMap.removeLayer(m)); _rbMarkers = []; }
+    const box = document.getElementById('replay-box');
+    if (box) box.classList.remove('attivo');
+};
 
 window.setTimeFilter = function(value) {
     if (!map || !isInitialized) {

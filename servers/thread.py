@@ -44,9 +44,6 @@ def start_data_server(config: ConfigParser):
 
         print(f"Kafka server: {server}")
 
-        # ATTENZIONE: "server" viene letto da config e stampato, ma non passato a KafkaWorker() —
-        # se il worker deve connettersi a quell'indirizzo, verificare che lo legga altrove
-        # (es. da config globale) oppure aggiungerlo qui come parametro.
         worker = KafkaWorker()
 
 

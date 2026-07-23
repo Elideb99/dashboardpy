@@ -405,7 +405,7 @@ class TabsView:
         table = self.tab_logs[zone]
         table.setRowCount(0)
 
-        gruppi = self._raggruppa_per_evento(logs)
+        gruppi = raggruppa_per_evento(logs)
 
         for gruppo in gruppi:
             n_revisioni = len(gruppo["revisioni"])
@@ -999,12 +999,7 @@ class TabsView:
         else:
             self.tabs.tabBar().setTabTextColor(tab_index, QColor("#a0c4e8"))
 
-    def _raggruppa_per_evento(self, logs):
-        # wrapper "pass-through" — chiama semplicemente la funzione
-        # raggruppa_per_evento importata da utils.helpers senza aggiungere logica propria.
-        # Candidato alla rimozione: si potrebbe chiamare raggruppa_per_evento(logs)
-        # direttamente da update_logs (che già lo fa, vedi sopra) invece di passare da qui.
-        return raggruppa_per_evento(logs)
+
 
     @staticmethod
     def _colore_magnitudo(mag):

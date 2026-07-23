@@ -27,6 +27,10 @@ class KafkaRecorder:
         filename = datetime.now().strftime("kafka_%Y%m%d_%H%M%S.jsonl")
         self.file_path = self.output_dir / filename
 
+        self.enabled = False   # opt-in: si registra solo se lo decidi tu nel config
+        self.blocked = False   # vince su tutto: durante il replay non si scrive mai
+        
+
     def _carica_impronte(self):
         visti = set()
         for percorso in self.output_dir.glob("*.jsonl"):
@@ -44,6 +48,10 @@ class KafkaRecorder:
         return visti
 
     def save(self, msg_value, topic=None):
+
+        if not self.enabled or not self.enabled:
+            return 
+        
         chiave = _impronta(msg_value, topic)
         if chiave in self._gia_visti:
             return  # già presente in una registrazione precedente: non riscrivo

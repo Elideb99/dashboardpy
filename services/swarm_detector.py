@@ -84,10 +84,7 @@ class SwarmDetector:
             tooltip = "Attività sismica rientrata"
 
         else:
-            # ATTENZIONE: questa è anche la via d'uscita per uno sciame "a metà" — es. era
-            # SCIAME IN CORSO ma ora ha 2-4 eventi confermati nelle 6h (non abbastanza per
-            # restare IN CORSO, non abbastanza pochi per TERMINATO): salta direttamente a
-            # NESSUNO invece di passare per uno stato intermedio. Verificare se è il comportamento voluto.
+          
             state = "NESSUNO"
             color = "#53565A"  # grigio
             tooltip = "Nessun evento o attività insufficiente per uno sciame"

@@ -20,7 +20,7 @@ with open(INPUT, encoding="utf-8") as fin, open(OUTPUT, "w", encoding="utf-8") a
         value = record.get("value", {})
 
         if record.get("topic"):
-            # già presente (es. se in futuro rilanci lo script su un file già fixato)
+            # già presente 
             pass
         elif isinstance(value, dict) and "swarm_id" in value:
             record["topic"] = "replay.swarms"

@@ -6,6 +6,7 @@ import json
 from services.kafka_recorder import KafkaRecorder
 from utils.helpers import seleziona_ultima_scossa,parse_event_datetime
 from views.dialogs import AlarmDialog
+import configparser, os
 
 
 class SystemController(QObject):
@@ -58,7 +59,19 @@ class SystemController(QObject):
         self.swarm_states = {}        # zona -> (state, color, tooltip) da SwarmDetector
         self.official_swarms = {}     # zona -> ultimo comunicato ufficiale ricevuto da Kafka
         self._ultimo_sciame_ufficiale = {}   # zona -> ultimo comunicato sciame, mantenuto anche a sciame concluso
+       
+
+        _cfg = configparser.ConfigParser()
+        _cfg.read(os.path.join(os.path.dirname(__file__), "..", "config.ini"))
+
         self.kafka_recorder = KafkaRecorder()
+        self.kafka_recorder.enabled = _cfg.getboolean("kafka", "registra", fallback=False)
+        if self._in_replay():
+         self.kafka_recorder.blocked = True
+
+        stato = "DISATTIVATA (replay)" if self.kafka_recorder.blocked else \
+          ("ATTIVA" if self.kafka_recorder.enabled else "DISATTIVATA")
+        print(f"[KAFKA REC] registrazione {stato}")
 
         # Timer che riporta in QUIETE e spegne le card rosse.
         # Il tick è solo la frequenza del controllo, le soglie sono le costanti sopra.
@@ -204,43 +217,6 @@ class SystemController(QObject):
                 except Exception:
                     pass
         return max(date) if date else datetime.utcnow()
-
-    # Filtra e ordina i log in base all'intervallo temporale selezionato.
-    def _logs_filtrati(self, logs):
-        """Applica il filtro temporale attivo a una lista di log."""
-        from datetime import timedelta
-
-        # Ordina i log dal più recente al meno recente.
-        def ordina(ls):
-            return sorted(ls, key=lambda e: e.get("data", "") if isinstance(e, dict) else "",
-                          reverse=True)
-
-        key = self._active_filter
-        if key == "all":
-            return ordina(logs)
-
-        delta = {
-            "24h": timedelta(hours=24),
-            "48h": timedelta(hours=48),
-            "7gg": timedelta(days=7),
-            "14gg": timedelta(days=14),
-            "1mese": timedelta(days=30),
-        }.get(key)
-        if delta is None:
-            return ordina(logs)
-
-        cutoff = self._riferimento_temporale() - delta
-        risultato = []
-        for entry in logs:
-            if not isinstance(entry, dict):
-                continue
-            try:
-                data_str = str(entry.get("data", "")).replace("T", " ")[:19]
-                if datetime.strptime(data_str, "%Y-%m-%d %H:%M:%S") >= cutoff:
-                    risultato.append(entry)
-            except Exception:
-                pass
-        return ordina(risultato)
 
     # Ridisegna le tabelle mostrando tutti i log ordinati per data.
     def render_logs_filtrati(self):
@@ -391,7 +367,7 @@ class SystemController(QObject):
                 evento_stato.get("magnitudine")
             )
 
-        # ── ALLARME IN FONDO ───────────────────────────────────────────
+        # ── ALLARME ───────────────────────────────────────────
         # Deve stare qui, dopo che mappa/log/stato sono già aggiornati:
         # prima si elabora, poi si notifica.
         from services.alarm_service import should_alarm
@@ -807,3 +783,14 @@ class SystemController(QObject):
      print(f"[REPLAY SCIAME] {zona}: {len(payload)} eventi")
      js = f"window.replaySciame({json.dumps(payload)}, 400)"
      self.view.map_widget.webview.page().runJavaScript(js)
+
+    def _in_replay(self):
+     """True se i messaggi arrivano da un file .jsonl invece che da Kafka vero."""
+     w = self.data_worker
+     if w is None:
+        return False
+     return bool(
+        getattr(w, "replay_file", None)
+        or getattr(w, "replay_path", None)
+        or getattr(w, "from_file", False)
+     )

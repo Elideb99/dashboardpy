@@ -1,7 +1,6 @@
 from PyQt6.QtCore import QObject, pyqtSignal
 from ovsvmlib import BaseWorker
 from ovsvmlib.core import Message
-import threading
 
 
 class KafkaWorker(QObject):

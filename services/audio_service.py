@@ -10,9 +10,7 @@ class AudioService: #classe per gestire la riproduzione audio
         self._audio_process = None # inizializza il processo audio a none
         self.audio_available = False # flag per indicare se l'audio è disponibile
         
-        # ATTENZIONE: il file "/proc/version" viene aperto con open(...) senza chiuderlo
-        # (niente "with" né .close()) — su un singolo avvio non è un problema serio,
-        # ma è una risorsa non rilasciata esplicitamente.
+
         self._is_wsl = ( #rileva wsl
             os.path.exists("/proc/version")
             and "microsoft" in open("/proc/version").read().lower()

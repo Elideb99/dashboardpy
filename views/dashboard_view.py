@@ -186,22 +186,6 @@ class DashboardView(QMainWindow):
         self.setWindowTitle("Sala di Monitoraggio")
 
 
-    # Mostra il popup di allarme con magnitudo e zona.
-    def show_alarm_popup(self, magnitudo, zona):
-        dialog = AlarmDialog(
-            self,
-            self.ui_scale,
-            magnitudo,
-            zona
-        )
-        dialog.exec()
-
-    # Ripristina il titolo originale della finestra.
-    def reset_window_title(self):
-        self.setWindowTitle(
-            "Sala di Monitoraggio - Simulatore"
-        )
-
     # Aggiorna header e mappa quando la finestra viene ridimensionata.
     def resizeEvent(self, event):
         super().resizeEvent(event)

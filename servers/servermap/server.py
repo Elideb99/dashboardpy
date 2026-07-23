@@ -15,7 +15,7 @@ def start_background_server(porta=8000):
     try:
         thread = threading.Thread(target=avvia_server, args=(porta,), daemon=True)
         thread.start()
-        print("SERVER IN ASCOLTO SU 8000")   # ATTENZIONE: valore fisso "8000" nel messaggio, non usa la variabile porta
+        print("SERVER IN ASCOLTO SU 8000")  
 
     except Exception as e:
         print("ERRORE SERVER:", e)

@@ -170,7 +170,6 @@ html, body {
     <div class="rb-body">
         <div>
             <!-- <svg class="rb-plot" id="rb-plot" width="220" height="170" viewBox="0 0 220 170"></svg> -->
-             <!-- ATTENZIONE: doppia "rb-caption" (qui sotto e subito dopo) — probabile duplicato residuo -->
              <div>
     <div class="rb-plot" id="rb-plot"></div>
     <div class="rb-caption">posizione delle scosse sulla caldera</div>
@@ -433,10 +432,7 @@ function generateRing(lat, lng, outerR, innerR, steps = 64) {
     return [outer, inner.reverse()]; // il buco va in senso opposto
 }
 
-// ATTENZIONE: colore, coloreMarker, raggio, magTesto e generateRing sono calcolati
-// ma non usati: la funzione rimuove il vecchio v.circle e basta, non disegna/aggiorna
-// nessun marker o cerchio nuovo, né riassegna v.circle. Sembra un refactor incompleto:
-// verificare se manca la creazione del layer (marker/cerchio) prima della fine della funzione.
+
 
 }
 
@@ -736,7 +732,7 @@ function _rbInitMap() {
 
 // anima in sequenza gli eventi di uno sciame nel riquadro di replay (una scossa alla volta)
 window.replaySciame = function(eventi, intervalloMs) {
-    intervalloMs = 1200;   // ATTENZIONE: il parametro intervalloMs ricevuto viene ignorato e sovrascritto qui
+    intervalloMs = 1200;   
     eventi = _rbCollassa(eventi);
     if (!eventi.length) return;
 

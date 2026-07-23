@@ -324,17 +324,16 @@ class HeaderView:
     def resize(self, width):
      """Gestisce il resize dell'header, ricalcolando le dimensioni dei font in base alla larghezza"""
      if width >= 3840:
-        t1, t2, td, ls = "48px", "36px", "36px", "30px", 160
+        t1, t2, td, ls = "48px", "36px", "36px", 160
      elif width >= 2560:
-        t1, t2, td, ls = "38px", "28px", "30px", "24px", 130
+        t1, t2, td,  ls = "38px", "28px", "30px",  130
      elif width >= 1920:
-        t1, t2, td, ls = "30px", "24px", "24px", "20px", 100
+        t1, t2, td,  ls = "30px", "24px", "24px",  100
      elif width >= 1400:
-        t1, t2, td, ls = "26px", "20px", "20px", "17px", 85
+        t1, t2, td,  ls = "26px", "20px", "20px",  85
      else:
-        t1, t2, td, ls = "20px", "15px", "16px", "15px", 60
+        t1, t2, td, ls = "20px", "15px", "16px",  60
 
-    
      self.title1.setStyleSheet(f"font-size: {t1}; font-weight: bold; color: white;")
      self.title2.setStyleSheet(f"font-size: {t2}; color: #cccccc;")
      self.data_label.setStyleSheet(f"font-size: {td}; color: white; font-family: monospace;")

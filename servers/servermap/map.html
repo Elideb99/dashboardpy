@@ -158,6 +158,7 @@ html, body {
     </div>
 </div>
 
+<!-- Riquadro popup che mostra il replay dello sciame, popolato/animato da window.replaySciame() -->
 <div class="replay-box" id="replay-box">
     <div class="rb-head">
         <span class="rb-title">▶ Replay ultimo sciame</span>
@@ -169,6 +170,7 @@ html, body {
     <div class="rb-body">
         <div>
             <!-- <svg class="rb-plot" id="rb-plot" width="220" height="170" viewBox="0 0 220 170"></svg> -->
+             <!-- ATTENZIONE: doppia "rb-caption" (qui sotto e subito dopo) — probabile duplicato residuo -->
              <div>
     <div class="rb-plot" id="rb-plot"></div>
     <div class="rb-caption">posizione delle scosse sulla caldera</div>
@@ -188,7 +190,7 @@ html, body {
 //  UTILITY – dimensioni responsive
 // ══════════════════════════════════════════════════════════════
 
-
+// raggio del marker del VULCANO (non degli eventi sismici, vedi tempo2raggio più sotto)
 function markerRadius(stato) {
     const base = Math.max(8, Math.round(window.innerWidth / 160));
     // ~12 a 1920px · ~20 a 3200px · ~27 a 4320px · ~40 a 6400px
@@ -247,8 +249,8 @@ function fitToVulcani() {
 //  VARIABILI GLOBALI
 // ══════════════════════════════════════════════════════════════
 let map           = null;
-let currentLayer  = null;
-let resizeTimeout = null;
+let currentLayer  = null;   // layer del tile provider attivo (per poterlo rimuovere al cambio provider)
+let resizeTimeout = null;   // debounce per l'evento resize
 let isInitialized = false;
 
 const vulcaniData = { /* coordinate di ogni vulcano */
@@ -305,6 +307,7 @@ function handleResize() {
 
     clearTimeout(resizeTimeout);
 
+    // debounce: aspetta 250ms di calma dopo l'ultimo evento resize prima di ricalcolare
     resizeTimeout = setTimeout(() => {
         map.invalidateSize();
         fitToVulcani();
@@ -320,7 +323,7 @@ function handleResize() {
 }
 
 function initMap() {
-    if (isInitialized && map !== null) return;
+    if (isInitialized && map !== null) return;   // evita doppia inizializzazione
     if (map !== null) { map.remove(); map = null; }
 
     const container = document.getElementById('map');
@@ -337,13 +340,14 @@ function initMap() {
             inertiaMaxSpeed:     1500
         });
 
+        // pane separati per controllare l'ordine di sovrapposizione: i vulcani sempre sopra gli eventi
         map.createPane('vulcaniPane');
 map.getPane('vulcaniPane').style.zIndex = 650;  // sempre sopra i pallini eventi
 
 map.createPane('eventiPane');
 map.getPane('eventiPane').style.zIndex = 400;   // sotto i vulcani
 
-window.eventiRenderer = L.canvas({ pane: 'eventiPane' });
+window.eventiRenderer = L.canvas({ pane: 'eventiPane' });  // renderer canvas condiviso per gli eventi (performance con tanti pallini)
 
 
 
@@ -429,7 +433,10 @@ function generateRing(lat, lng, outerR, innerR, steps = 64) {
     return [outer, inner.reverse()]; // il buco va in senso opposto
 }
 
-
+// ATTENZIONE: colore, coloreMarker, raggio, magTesto e generateRing sono calcolati
+// ma non usati: la funzione rimuove il vecchio v.circle e basta, non disegna/aggiorna
+// nessun marker o cerchio nuovo, né riassegna v.circle. Sembra un refactor incompleto:
+// verificare se manca la creazione del layer (marker/cerchio) prima della fine della funzione.
 
 }
 
@@ -446,6 +453,7 @@ function inizializzaVulcani() {
 // ══════════════════════════════════════════════════════════════
 window.aggiornaStatoVulcano = function(zona, stato, magnitudo) {
     if (!map || !isInitialized) {
+        // la mappa non è ancora pronta (caricamento asincrono): riprova ogni 100ms per max 5s
         const iv = setInterval(() => {
             if (map && isInitialized) {
                 clearInterval(iv);
@@ -552,6 +560,7 @@ function tempo2raggio(dataEvento) {
     return Math.round(raggio);
 }
 
+// colore del pallino evento in base alla magnitudo (soglie coerenti con la legenda in HTML)
 function magnitudo2colore(mag) {
     if (mag >= 3.0) return '#e53935';
     if (mag >= 2.0) return '#ff9800';
@@ -559,7 +568,7 @@ function magnitudo2colore(mag) {
     return '#1B7A3D'; // verde
 }
 
-
+// converte la chiave del filtro (24h/48h/7gg/...) nella durata in millisecondi corrispondente
 function filterDelta(filterKey) {
     if (filterKey === "all") {
         return Infinity;   
@@ -574,6 +583,7 @@ function filterDelta(filterKey) {
     return MS[filterKey] || MS["24h"];
 }
 
+// disegna un singolo evento come circleMarker sulla mappa e ne registra il popup
 function _disegnaEvento(e) {
     // const raggio = magnitudo2raggio(e.mag);
     const raggio = tempo2raggio(e.data);
@@ -610,6 +620,7 @@ function _disegnaEvento(e) {
     return pallino;
 }
 
+// ridisegna solo gli eventi che rientrano nel filtro temporale attivo (non tocca eventiMaster)
 function applyFilter() {
     // 1. Rimuovi tutti i marker dalla mappa
     eventiLayer.forEach(c => map && map.removeLayer(c));
@@ -635,7 +646,7 @@ function applyFilter() {
 
 // ── API esposte a Python ───────────────────────────────────────
 
-
+// aggiunge un nuovo evento (usato per un singolo evento in arrivo, es. da Serenade batch)
 window.aggiungiEvento = function(lat, lng, mag, data, qualita, area) {
     if (!map || !isInitialized) return;
     const e = { lat, lng, mag, data, qualita, area };
@@ -647,6 +658,7 @@ window.aggiungiEvento = function(lat, lng, mag, data, qualita, area) {
     }
 };
 
+// aggiorna un evento esistente (stessa "chiave", es. revisione di una scossa) o lo crea se nuovo
 window.upsertEvento = function(chiave, lat, lng, mag, data, qualita, area) {
     if (!map || !isInitialized) return;
 
@@ -678,6 +690,7 @@ window.clearEventi = function() {
     eventiMaster.length = 0;   // svuota anche il master
 };
 
+// inserimento massivo di eventi (es. al caricamento iniziale dei log storici)
 window.aggiungiEventiBatch = function(eventi) {
     if (!map || !isInitialized) return;
     eventi.forEach(function(e) {
@@ -708,6 +721,7 @@ function _rbCollassa(eventi, tollSec = 2) {
 let _rbMap = null;              // mini-mappa del riquadro
 let _rbMarkers = [];            // pallini attualmente disegnati nel riquadro
 
+// crea (una sola volta, lazy) la mini-mappa del riquadro di replay, riusando il tile provider attivo
 function _rbInitMap() {
     if (_rbMap) return _rbMap;
     _rbMap = L.map('rb-plot', {
@@ -720,8 +734,9 @@ function _rbInitMap() {
     return _rbMap;
 }
 
+// anima in sequenza gli eventi di uno sciame nel riquadro di replay (una scossa alla volta)
 window.replaySciame = function(eventi, intervalloMs) {
-    intervalloMs = 1200;
+    intervalloMs = 1200;   // ATTENZIONE: il parametro intervalloMs ricevuto viene ignorato e sovrascritto qui
     eventi = _rbCollassa(eventi);
     if (!eventi.length) return;
 
@@ -756,6 +771,7 @@ window.replaySciame = function(eventi, intervalloMs) {
         if (i >= eventi.length) { meta.textContent = 'Replay terminato'; return; }
         const e = eventi[i];
 
+        // affievolisce i marker precedenti per evidenziare quello corrente
         _rbMarkers.forEach(m => m.setStyle({ fillOpacity: 0.3, opacity: 0.3 }));
 
         const c = L.circleMarker([+e.lat, +e.lng], {
@@ -783,6 +799,7 @@ window.clearReplaySciame = function() {
     if (box) box.classList.remove('attivo');
 };
 
+// cambia il filtro temporale attivo (24h/48h/.../all) e ridisegna i pallini di conseguenza
 window.setTimeFilter = function(value) {
     if (!map || !isInitialized) {
         const iv = setInterval(() => {

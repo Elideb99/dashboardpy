@@ -32,7 +32,7 @@ class MapService:
         print(f"Errore config mappa: {e}")
         return None
     
-    def apply_config(self):  # carica la configurazione 
+    def apply_config(self):  # carica la configurazione e imposta il tile layer via JS
         config = self.load_configuration()
         if not config:
             return
@@ -46,6 +46,7 @@ class MapService:
         self.webview.page().runJavaScript(js)
     
     def update_vulcano(self, zona, stato, magnitudo=None):
+        # via "diretta": usata solo quando la mappa è già pronta (nessun controllo typeof lato JS, a differenza di _update_safe)
         if self.map_ready:
             if magnitudo is not None:
                 self.webview.page().runJavaScript( # se la mappa è pronta per ricevere i comandi chiama la funzion JS
@@ -72,6 +73,7 @@ class MapService:
             self._update_safe(zona, stato, magnitudo)
     
     def _update_safe(self, zona, stato, magnitudo=None):
+        # versione difensiva di update_vulcano: controlla lato JS che la funzione esista prima di chiamarla
         if not self.webview:
             return
         try: # controlla se la funzione aggiornaStatoVulcano esiste e la chiama con 3 parametri
@@ -121,6 +123,7 @@ class MapService:
      if not self.map_ready or not self.webview:
         return
      args = json.dumps([chiave, lat, lng, mag, data, qualita, area])
+     # "...{args}" spacchetta l'array JSON come lista di argomenti posizionali per upsertEvento(...)
      js = f'if (typeof upsertEvento !== "undefined") upsertEvento(...{args});'
      self.webview.page().runJavaScript(js)
 

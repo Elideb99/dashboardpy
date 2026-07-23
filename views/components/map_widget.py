@@ -1,5 +1,4 @@
 
-import os
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QPushButton, QHBoxLayout, QWidget
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
@@ -12,6 +11,8 @@ class MapPage(QWebEnginePage):
     replay_requested = pyqtSignal(str) 
 
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
+        # intercetta i link "finti" app://... generati dal JS della mappa (bottoni tab/replay)
+        # invece di farli navigare davvero, li traduce in segnali Qt per il controller
         if url.scheme() == 'app' and url.host() == 'tab':
             zona = url.path().strip('/').replace('-', ' ')
             self.zone_clicked.emit(zona)
@@ -26,8 +27,6 @@ class MapPage(QWebEnginePage):
 
 class MapWidget:
     """VIEW: Gestisce il widget della mappa Leaflet"""
-
-    _BASE_MIN_HEIGHT = 400
 
     def __init__(self, parent, ui_scale):
         self.parent   = parent
@@ -46,6 +45,8 @@ class MapWidget:
 
     def create(self):
      # ── carica filtri da config ──────────────────────────────
+     # i pulsanti della barra filtri (24h/48h/...) sono generati dinamicamente da config.ini,
+     # non hardcoded, così cambiano insieme a MAP_FILTERS/MAP_FILTER_LABELS
      filtri_cfg     = load_map_filters()
      filtri         = [(o["key"], o["label"]) for o in filtri_cfg["options"]]
      default_filter = filtri_cfg.get("default", filtri[0][0])
@@ -93,8 +94,10 @@ class MapWidget:
 
      for key, label in filtri:               # ← usa i filtri dal config
         btn = QPushButton(label)
-        btn.setCheckable(True)
+        btn.setCheckable(True)   # comportamento "toggle": resta premuto finché non se ne clicca un altro
         btn.setStyleSheet(btn_style)
+        # k=key nel lambda: cattura il valore corrente di key, non l'ultimo del ciclo (classica
+        # trappola delle closure in Python nei loop)
         btn.clicked.connect(lambda checked, k=key: self._on_filter_clicked(k))
         btn_layout.addWidget(btn)
         self._filter_buttons[key] = btn
@@ -108,9 +111,9 @@ class MapWidget:
 
      # --- WEBVIEW ---
      self.webview = QWebEngineView()
-     self.map_page = MapPage(self.webview)
+     self.map_page = MapPage(self.webview)   # pagina custom per intercettare i link app://
      self.webview.setPage(self.map_page)
-     self.webview.setUrl(QUrl("http://127.0.0.1:8000/map.html"))
+     self.webview.setUrl(QUrl("http://127.0.0.1:8000/map.html"))   # servito dal server HTTP locale in background
      self.webview.settings().setAttribute(
          self.webview.settings().WebAttribute.WebGLEnabled, False
      )
@@ -124,7 +127,7 @@ class MapWidget:
 
     
     def _apply_min_height(self):
-        h = min(int(200 * self.ui_scale), 1600)
+        h = min(int(200 * self.ui_scale), 1600)   # altezza minima proporzionale alla scala UI, con tetto a 1600px
         self.frame.setMinimumHeight(h)
 
     def update_height(self, ui_scale):
@@ -135,7 +138,9 @@ class MapWidget:
         self.on_loaded_callback = callback
 
     def _on_load_finished(self, ok):
-
+     # QWebEngineView può segnalare ok=False anche quando la navigazione è stata
+     # intercettata volutamente da acceptNavigationRequest (link app://): in quel caso
+     # l'URL corrente resta comunque quello della mappa, quindi si ignora il falso negativo
      if not ok:
         # Controlla se è un falso negativo da navigazione intercettata
         url = self.webview.url().toString()
@@ -159,6 +164,7 @@ class MapWidget:
      self.on_filter_callback = callback
 
     def _on_filter_clicked(self, key):
+     # aggiorna lo stato visuale dei pulsanti (solo uno "checked" alla volta) e notifica il controller
      self._active_filter = key
      for k, btn in self._filter_buttons.items():
         btn.setChecked(k == key)

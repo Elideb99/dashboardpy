@@ -1,4 +1,4 @@
-# 🌋 Osservatorio Vesuviano — Dashboard Simulatore
+# Dashboard di Monitoraggio Sismico
 
 Applicazione desktop di simulazione per il monitoraggio sismico delle aree vulcaniche della Campania: **Vesuvio**, **Campi Flegrei** e **Ischia**.
 

@@ -1,6 +1,5 @@
-
-from datetime import datetime,timedelta
-from models.system_model import SystemModel, SystemStatus
+from datetime import datetime
+from models.system_model import SystemModel
 from services.swarm_detector import SwarmDetector
 from PyQt6.QtCore import QObject, QTimer
 import json
@@ -30,6 +29,7 @@ class SystemController(QObject):
 
     
 
+    # Inizializza il controller, collega i servizi e configura i timer e i worker.
     def __init__(self, model, audio_service, map_service, view=None, data_worker=None, data_thread=None, kafka_date_from=None):
         super().__init__()
         # il costruttore riceve 4 componenti
@@ -82,16 +82,20 @@ class SystemController(QObject):
     # ─────────────────────────────────────────────────────────
 
 
+    # Restituisce la data locale corrente nel formato giorno/mese/anno.
     def get_current_date(self):
         return datetime.now().strftime("%d/%m/%Y")
 
+    # Restituisce la data UTC corrente nel formato giorno/mese/anno.
     def get_current_date_utc(self):
         """Restituisce la data UTC corrente"""
         return datetime.utcnow().strftime("%d/%m/%Y")
 
+    # Restituisce l'ora locale corrente.
     def get_current_time(self):
         return datetime.now().strftime("%H:%M:%S")
 
+    # Restituisce l'ora UTC corrente.
     def get_utc_time(self):
         """Restituisce l'ora UTC corrente"""
         return datetime.utcnow().strftime("%H:%M:%S")
@@ -99,6 +103,7 @@ class SystemController(QObject):
     # ─────────────────────────────────────────────────────────
     #  QUIETE E ALLERTA CARD
     # ─────────────────────────────────────────────────────────
+    # Verifica se il sistema deve tornare in quiete e spegne gli allarmi scaduti.
     def controlla_quiete(self):
         """Chiamato dal timer: spegne le card scadute e riporta il sistema in QUIETE.
         Misura sempre sull'orologio di ARRIVO (last_event_time), mai sulla data
@@ -112,6 +117,7 @@ class SystemController(QObject):
             self.model.reset_a_quiete()
             self._spegni_tutti_allarmi_card()
 
+    # Attiva l'allarme visivo sulla card della zona indicata.
     def _accendi_allarme_card(self, zona, mag):
         """Rende rossa la card della zona che ha avuto la scossa forte.
         È la traccia persistente che resta dopo che il popup è sparito."""
@@ -126,15 +132,18 @@ class SystemController(QObject):
         if self.view and hasattr(self.view, "tabs_view"):
             self.view.tabs_view.update_zone_alarm(zona, mag)
 
+    # Disattiva l'allarme visivo della card di una zona.
     def _spegni_allarme_card(self, zona):
         self._zone_alarms.pop(zona, None)
         if self.view and hasattr(self.view, "tabs_view"):
             self.view.tabs_view.update_zone_alarm(zona, None)
 
+    # Disattiva gli allarmi visivi di tutte le zone.
     def _spegni_tutti_allarmi_card(self):
         for zona in list(self._zone_alarms):
             self._spegni_allarme_card(zona)
 
+    # Rimuove gli allarmi delle card che hanno superato la durata prevista.
     def _scadi_allarmi_card(self):
         ora = datetime.now()
         scaduti = [
@@ -148,6 +157,7 @@ class SystemController(QObject):
     #  LOGICA MAPPA
     # ─────────────────────────────────────────────────────────
 
+    # Completa l'inizializzazione quando la mappa è stata caricata.
     def on_map_loaded(self, ok):
         print("Mappa caricata" if ok else "Errore mappa")
         if ok:
@@ -161,6 +171,7 @@ class SystemController(QObject):
             if self.data_thread is not None and not self.data_thread.isRunning():
                 self.data_thread.start()
 
+    # Aggiorna lo zoom della mappa in base alla scheda selezionata.
     def on_tab_changed(self, tab_name):  # gestisce lo zoom delle zone sismiche
         if not self.map_service.map_ready:
             return
@@ -170,13 +181,16 @@ class SystemController(QObject):
         else:
             self.map_service.zoom_to_all()
 
+    # Aggiorna la visualizzazione corrente della mappa.
     def refresh_map(self):
         self.map_service.refresh_view()  # aggiorna la visualizzazione della mappa
 
+    # Applica gli aggiornamenti della mappa rimasti in attesa.
     def process_pending_updates(self):
         self.map_service.process_pending()  # processa gli aggiornamenti in sospeso della mappa
 
 
+    # Determina l'istante di riferimento usato dai filtri temporali.
     def _riferimento_temporale(self):
         """Istante da cui misurare i filtri: l'ultima scossa presente nei dati,
         così i filtri funzionano anche rigiocando registrazioni vecchie.
@@ -191,10 +205,12 @@ class SystemController(QObject):
                     pass
         return max(date) if date else datetime.utcnow()
 
+    # Filtra e ordina i log in base all'intervallo temporale selezionato.
     def _logs_filtrati(self, logs):
         """Applica il filtro temporale attivo a una lista di log."""
         from datetime import timedelta
 
+        # Ordina i log dal più recente al meno recente.
         def ordina(ls):
             return sorted(ls, key=lambda e: e.get("data", "") if isinstance(e, dict) else "",
                           reverse=True)
@@ -226,6 +242,7 @@ class SystemController(QObject):
                 pass
         return ordina(risultato)
 
+    # Ridisegna le tabelle mostrando tutti i log ordinati per data.
     def render_logs_filtrati(self):
      """Ridisegna le tabelle con TUTTI i log (ordinati per data). I filtri
      temporali (24h/48h/...) riguardano solo i pallini sulla mappa, mai
@@ -242,12 +259,14 @@ class SystemController(QObject):
         self.view.tabs_view.update_logs(zona, ordinati)
 
 
+    # Aggiorna la visualizzazione delle tabelle dei log.
     def _filtra_e_aggiorna_logs(self):
      if self.view is None:
         return
      self.render_logs_filtrati()
 
 
+    # Memorizza il filtro selezionato e lo applica alla mappa.
     def on_filter_changed(self, key):
      self._active_filter = key
 
@@ -263,18 +282,16 @@ class SystemController(QObject):
     #  LOGICA KAFKA
     # ─────────────────────────────────────────────────────────
 
+    # Elabora un nuovo evento sismico ricevuto da Kafka.
     def on_kafka_message(self, msg):
-        # print("🔵 [KAFKA] Messaggio ricevuto")
 
         # Registra il messaggio Kafka
         self.kafka_recorder.save(msg.value)
 
         if isinstance(msg.value, list):
             nomi_blocchi = [item.get("name") for item in msg.value if isinstance(item, dict)]
-            # print(f"[KAFKA] Blocchi presenti (lista): {nomi_blocchi}")
 
         elif isinstance(msg.value, dict):
-            # print(f"[KAFKA] Messaggio DICT. Chiavi: {list(msg.value.keys())}")
             print(json.dumps(msg.value, indent=2, default=str))
 
         else:
@@ -386,6 +403,7 @@ class SystemController(QObject):
             self._alarmed_event_ids.add(event_id)
             self._trigger_alarm(filtrato)
 
+    # Converte il nome della zona nel formato usato dall'applicazione.
     def _normalizza_zona_kafka(self, area: str | None) -> str:
         AREA_MAP = {
             'vesuvio':  'VESUVIO',
@@ -396,6 +414,7 @@ class SystemController(QObject):
             return 'GENERALE'
         return AREA_MAP.get(area.lower().strip(), 'GENERALE')
     
+    # Genera una chiave stabile per riconoscere lo stesso evento sulla mappa.
     def _chiave_evento_mappa(self, entry: dict, gruppi: dict) -> str:
      """Chiave stabile per riconoscere la stessa scossa tra automatica e revisione.
      Preferisce event_id; se assente, raggruppa per area + prossimità temporale
@@ -420,13 +439,8 @@ class SystemController(QObject):
     
 
 
+    # Inserisce un nuovo evento sulla mappa o aggiorna quello già presente.
     def _aggiorna_evento_mappa(self, lat, lon, mag, time_str, qualita, area, filtrato_o_entry: dict):
-     """Sostituisce il pallino della scossa sulla mappa con la STESSA regola
-     usata dalla tabella (seleziona_rappresentante): tra tutte le revisioni note
-     di un evento, vince quella con la data DELL'EVENTO (non di arrivo) più
-     recente che ha magnitudo. Una revisione senza magnitudo non sovrascrive
-     mai; una revisione più vecchia per data-evento, anche se arrivata dopo,
-     non sovrascrive una revisione già più recente."""
      if lat is None or lon is None or mag is None:
         return
 
@@ -445,6 +459,7 @@ class SystemController(QObject):
      }
      self.map_service.upsert_evento(chiave, lat, lon, mag, time_str, qualita, area)
 
+    # Riproduce l'allarme, evidenzia la card e mostra il popup.
     def _trigger_alarm(self, filtrato: dict):
         self.audio_service.play()
         zona = self._normalizza_zona_kafka(filtrato.get("area"))
@@ -473,6 +488,7 @@ class SystemController(QObject):
         dialog.raise_()
         QTimer.singleShot(self.DURATA_ALLARME_MS, dialog.close)
 
+    # Elabora un comunicato Kafka relativo a uno sciame sismico.
     def on_kafka_swarm_message(self, msg):
         self.kafka_recorder.save(msg.value, topic=getattr(msg, "topic", None))
         dati = msg.value
@@ -544,6 +560,7 @@ class SystemController(QObject):
     # ─────────────────────────────────────────────────────────
 
 
+    # Elabora un gruppo di eventi ricevuti dal servizio Serenade.
     def on_serenade_message(self, eventi):
      if self._elaborando:
         return
@@ -659,6 +676,7 @@ class SystemController(QObject):
      finally:
         self._elaborando = False
 
+    # Restituisce la sorgente dati attualmente configurata.
     def get_active_source(self):
         """Ritorna 'kafka' o 'serenade' in base al worker configurato, per sapere come interpretare l'ordine dei log."""
         from servers.serenade.serenade import SerenadeWorker
@@ -676,6 +694,7 @@ class SystemController(QObject):
     #  SCIAMI
     # ─────────────────────────────────────────────────────────
 
+    # Determina lo stato dello sciame analizzando i log della zona.
     def _detect_swarm_state_from_logs(self, zona):
         detector = self.swarm_detectors.get(zona)
         if detector is None:
@@ -683,6 +702,7 @@ class SystemController(QObject):
         eventi = self.model.tab_logs.get(zona, [])
         return detector.detect(eventi)
 
+    # Aggiorna lo stato dello sciame mostrato nella card della zona.
     def _update_swarm_widget(self, zona):
         if zona not in self.swarm_detectors:
             return
@@ -702,6 +722,7 @@ class SystemController(QObject):
 
         self._update_global_swarm_banner()
 
+    # Mostra nel banner globale lo sciame con priorità maggiore.
     def _update_global_swarm_banner(self):
         if not self.view or not hasattr(self.view, "header") or not self.swarm_states:
             return
@@ -722,61 +743,14 @@ class SystemController(QObject):
         self.view.header.update_swarm_state(label, color, tooltip)
 
 
-        from datetime import datetime, timedelta
 
-    def ottieni_magnitudo_da_mostrare(zona, eventi_vulcano, stato_vulcano):
-     """
-     Calcola la magnitudo da inviare alla mappa per una determinata zona:
-     - Se c'è uno sciame sismico, prende la magnitudo massima dello sciame.
-     - Altrimenti, prende la magnitudo più alta delle ultime 24 ore.
-     """
-    # 1. Caso SCIAME SISMICO
-     if stato_vulcano == 'SCIAME':
-        eventi_sciame = [e for e in eventi_vulcano if e.get("in_sciame") == True]
-        if eventi_sciame:
-            # Trova la magnitudo massima dello sciame
-            magnitudini = [float(e.get("magnitudine", 0)) for e in eventi_sciame if e.get("magnitudine") is not None]
-            if magnitudini:
-                return max(magnitudini)
-
-    # 2. Caso Standard / Mancanza di sciame attivo: cerca nelle ultime 24 ore
-     ora_limite = datetime.now() - timedelta(hours=24)
-     eventi_recenti = []
-
-     for e in eventi_vulcano:
-        data_str = e.get("data")
-        if not data_str:
-            continue
-        try:
-            # Adatta il formato data a quello del tuo model (es. "YYYY-MM-DD HH:MM:SS")
-            data_evento = datetime.strptime(data_str.replace('T', ' '), "%Y-%m-%d %H:%M:%S")
-            if data_evento >= ora_limite:
-                eventi_recenti.append(e)
-        except ValueError:
-            continue
-
-     if eventi_recenti:
-        # Estrae la magnitudo più significativa (massima) delle ultime 24 ore
-        magnitudini_recenti = []
-        for e in eventi_recenti:
-            mag = e.get("magnitudine")
-            if mag is not None:
-                try:
-                    magnitudini_recenti.append(float(mag))
-                except ValueError:
-                    pass
-        if magnitudini_recenti:
-            return max(magnitudini_recenti)
-
-    # 3. Default: se non c'è nulla nelle ultime 24 ore, restituisce None (o 0)
-     return None
-    
-
+    # Gestisce la richiesta di riprodurre l'ultimo sciame disponibile.
     def on_replay_sciame_richiesto(self, azione):
      if azione != "sciame":
         return
      self._avvia_replay_ultimo_sciame()
 
+    # Individua la zona associata all'ultimo sciame memorizzato.
     def _zona_ultimo_sciame(self):
      fonte = self.official_swarms or self._ultimo_sciame_ufficiale
      if fonte:
@@ -789,6 +763,7 @@ class SystemController(QObject):
      ]
      return zone_attive[0] if zone_attive else None
 
+    # Prepara e avvia sulla mappa il replay dell'ultimo sciame.
     def _avvia_replay_ultimo_sciame(self):
      zona = self._zona_ultimo_sciame()
      if zona is None:
@@ -799,6 +774,7 @@ class SystemController(QObject):
      inizio = parse_event_datetime(dati.get("start_time") or dati.get("time_iso"))
      fine   = parse_event_datetime(dati.get("end_time")) or datetime.max
 
+     # Converte una magnitudo in numero, se il valore è valido.
      def _mag(v):
         try:
             return float(str(v).lstrip("Mm").strip())

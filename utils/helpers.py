@@ -1,28 +1,10 @@
-
-import random
 from datetime import datetime
 
 def compute_ui_scale(screen_width: int, dpi: float = 96.0, device_pixel_ratio: float = 1.0) -> float:
-    """
-    Scala UI per schermi 30-50".
-
-    La larghezza in pixel logici (screen_width / device_pixel_ratio) viene
-    confrontata con la base 1920 px; il DPI fisico corregge il risultato
-    perché un 4K da 32" e un 4K da 50" hanno la stessa risoluzione ma
-    densità molto diverse → su 50" i widget non devono essere più grandi.
-
-    Parametri
-    ----------
-    screen_width        : pixel totali orizzontali riportati da Qt
-    dpi                 : physicalDotsPerInchX() dello schermo
-    device_pixel_ratio  : devicePixelRatio() dello schermo (HiDPI factor del SO)
-
-    Riferimento: 1920 px logici a 96 DPI → scala 1.0
-    """
-    
+    # riporta la larghezza fisica a larghezza "logica" (indipendente dal device pixel ratio)
     logical_width = screen_width / device_pixel_ratio
 
-    scale_res = logical_width / 1920.0
+    scale_res = logical_width / 1920.0   # 1920px = riferimento base per scala 1.0
 
 
     REFERENCE_DPI = 96.0
@@ -30,11 +12,12 @@ def compute_ui_scale(screen_width: int, dpi: float = 96.0, device_pixel_ratio: f
 
     raw = scale_res * dpi_factor
 
-    return max(0.8, min(raw, 4.0))
+    return max(0.8, min(raw, 4.0))   # clamp tra 0.8x e 4.0x
 
 
 
 def message_handler(mode, context, message):
+    # filtro per i log di Qt/sistema: scarta righe di rumore note (driver GPU, audio, ecc.)
     parole_da_ignorare = [
         "Vulkan", "vulkan", "GPUInfo", "pipewire",
         "PulseAudioService", "va-", "symbolsresolver",
@@ -66,19 +49,20 @@ def seleziona_rappresentante(revisioni):
         return None
 
     con_mag = [r for r in validi if r.get("magnitudine") is not None]
-    return max(con_mag or validi, key=chiave_data)
+    return max(con_mag or validi, key=chiave_data)   # preferisce le revisioni con magnitudo, altrimenti tutte
 
 
 def raggruppa_per_evento(logs):
     """Raggruppa i log per event_id, restituendo per ciascun gruppo il rappresentante
     (ultima revisione con magnitudo) e la data dell'ultimo aggiornamento ricevuto."""
     gruppi = {}
-    ordine = []
+    ordine = []   # mantiene l'ordine di prima apparizione dei gruppi, prima del sort finale per data
 
     for entry in logs:
         if not isinstance(entry, dict):
             continue
         event_id = entry.get("event_id")
+        # eventi senza event_id restano ognuno nel proprio gruppo singolo (chiave basata su id() dell'oggetto)
         chiave = event_id if event_id is not None else f"__single_{id(entry)}"
         if chiave not in gruppi:
             gruppi[chiave] = []
@@ -118,7 +102,7 @@ def parse_event_datetime(date_str):
         try:
             return datetime.strptime(s[:26] if "." in s else s[:19], fmt)
         except ValueError:
-            continue
+            continue   # prova il formato successivo
     return None
 
 
@@ -134,11 +118,13 @@ def seleziona_ultima_scossa(logs, tolleranza_secondi=2):
     con_tempo = [(dt, e) for dt, e in con_tempo if dt is not None]
 
     if not con_tempo:
+        # fallback: nessuna data parsabile, ordina comunque per stringa grezza
         return max(validi, key=chiave_data)
 
     con_tempo.sort(key=lambda t: t[0], reverse=True)
-    riferimento = con_tempo[0][0]
+    riferimento = con_tempo[0][0]   # istante dell'evento più recente in assoluto
 
+    # raggruppa tutti gli eventi entro la tolleranza dall'evento più recente (stessa scossa, revisioni multiple)
     cluster = [e for dt, e in con_tempo if abs((riferimento - dt).total_seconds()) <= tolleranza_secondi]
 
     return seleziona_rappresentante(cluster)

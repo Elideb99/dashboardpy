@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 class SwarmDetector:
     def __init__(self):
-        self.previous_state = "NESSUNO"
+        self.previous_state = "NESSUNO"   # stato del turno precedente, serve solo per riconoscere la transizione a TERMINATO
 
     def _parse_time(self, date_str):
         if not date_str:
@@ -17,11 +17,13 @@ class SwarmDetector:
             return None
 
     def detect(self, eventi):
+        # stato euristico calcolato dai log locali (diverso dal comunicato ufficiale via Kafka swarms,
+        # che ha sempre la precedenza quando presente — vedi SystemController._update_swarm_widget)
         now = datetime.now()
 
         eventi_1h = []
         eventi_6h = []
-        eventi_24h = []
+        eventi_24h = []   # calcolato ma non usato più sotto nella logica degli stati
 
         for event in eventi:
             if not isinstance(event, dict):
@@ -43,6 +45,7 @@ class SwarmDetector:
             if event_time >= now - timedelta(hours=24):
                 eventi_24h.append(event)
 
+        # esclude gli eventi di tipo "trigger" (probabili falsi positivi/preliminari) dal conteggio confermato
         eventi_confermati_1h = [
             e for e in eventi_1h
             if str(e.get("tipo", "")).lower() != "trigger"
@@ -59,6 +62,9 @@ class SwarmDetector:
         ]
 
         # Logica stati - solo quelli effettivamente usati
+        # NB: eventi_confermati_1h è un sottoinsieme di eventi_confermati_6h, quindi l'ordine
+        # dei controlli (1h prima di 6h) è ciò che fa preferire INIZIATO a IN CORSO quando entrambe
+        # le soglie sono soddisfatte nella stessa finestra.
         if len(eventi_confermati_1h) >= 3:
             state = "SCIAME INIZIATO"
             color = "#FF9800"  # arancione
@@ -78,6 +84,10 @@ class SwarmDetector:
             tooltip = "Attività sismica rientrata"
 
         else:
+            # ATTENZIONE: questa è anche la via d'uscita per uno sciame "a metà" — es. era
+            # SCIAME IN CORSO ma ora ha 2-4 eventi confermati nelle 6h (non abbastanza per
+            # restare IN CORSO, non abbastanza pochi per TERMINATO): salta direttamente a
+            # NESSUNO invece di passare per uno stato intermedio. Verificare se è il comportamento voluto.
             state = "NESSUNO"
             color = "#53565A"  # grigio
             tooltip = "Nessun evento o attività insufficiente per uno sciame"

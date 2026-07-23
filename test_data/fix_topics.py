@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+# script una tantum: aggiunge il campo "topic" mancante a una registrazione Kafka vecchia,
+# deducendolo dalla forma del payload (vedi elif sotto)
 INPUT = Path("test_data/kafka_recordings/kafka_20260708_114405.jsonl")
 OUTPUT = INPUT.with_name(INPUT.stem + "_fixed.jsonl")
 

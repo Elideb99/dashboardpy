@@ -1,4 +1,3 @@
-
 from configparser import ConfigParser
 
 from PyQt6.QtCore import QThread
@@ -14,6 +13,7 @@ def start_data_server(config: ConfigParser):
     Il thread viene configurato qui, ma viene avviato nel main.py.
     """
 
+    # sceglie la sorgente dati da config.ini, sezione [DATA] chiave "source"
     data_source = config.get(
         "DATA",
         "source",
@@ -44,7 +44,9 @@ def start_data_server(config: ConfigParser):
 
         print(f"Kafka server: {server}")
 
-        # Se KafkaWorker non accetta parametri:
+        # ATTENZIONE: "server" viene letto da config e stampato, ma non passato a KafkaWorker() —
+        # se il worker deve connettersi a quell'indirizzo, verificare che lo legga altrove
+        # (es. da config globale) oppure aggiungerlo qui come parametro.
         worker = KafkaWorker()
 
 
@@ -63,6 +65,7 @@ def start_data_server(config: ConfigParser):
                 "ma SERENADE.enabled è false."
             )
 
+        # raccoglie tutta la configurazione Serenade in un dict da passare al worker
         serenade_config = {
             "base_url": config.get(
                 "SERENADE",
@@ -105,6 +108,7 @@ def start_data_server(config: ConfigParser):
             "Valori ammessi: kafka, serenade."
         )
 
+    # sposta il worker sul thread dedicato; run() partirà quando il thread verrà avviato
     worker.moveToThread(thread)
     thread.started.connect(worker.run)
 
@@ -124,12 +128,14 @@ def load_map_filters(config=None):
         from utils.config_loader import load_config
         config = load_config()
 
+    # filtro selezionato di default all'avvio (es. "24h")
     default_filter = config.get(
         "MAP_FILTERS",
         "default",
         fallback="24h",
     ).strip()
 
+    # elenco delle chiavi filtro disponibili, separate da virgola in config.ini
     raw_options = config.get(
         "MAP_FILTERS",
         "options",
@@ -145,6 +151,7 @@ def load_map_filters(config=None):
     options = []
 
     for key in keys:
+        # etichetta leggibile per l'utente; se non definita in [MAP_FILTER_LABELS] usa la chiave in maiuscolo
         label = config.get(
             "MAP_FILTER_LABELS",
             key,

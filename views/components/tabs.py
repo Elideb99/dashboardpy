@@ -1,4 +1,3 @@
-
 from PyQt6.QtWidgets import QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QSizePolicy, QLabel, QHBoxLayout, QFrame
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
@@ -35,13 +34,13 @@ class TabsView:
         self.tabs = None
         self.tab_logs = {}   # contiene QTableWidget invece di QTextEdit
         self.zone_cards = {}
-        self._expanded_groups = {}  # set di event_id espansi
-        self._last_logs = {}        # ultima lista logs ricevuta
-        self.zone_labels = {}
+        self._expanded_groups = {}  # zona -> set di gruppo_chiave (event_id) espansi nella tabella
+        self._last_logs = {}        # zona -> ultima lista logs ricevuta (serve per ridisegnare dopo un espandi/comprimi)
+        self.zone_labels = {}       # zona -> dict di riferimenti ai widget della card (mag, date, ecc.)
 
         self._swarm_states = {}     # zona -> (state, color, tooltip)
         self._zone_alarms = {}      # zona -> magnitudine della scossa forte
-        self._swarm_peaks = {}
+        self._swarm_peaks = {}      # zona -> {"magnitudo":..., "data": datetime} picco sciame corrente
 
     def scale(self, v):
         return max(1, int(v * self.ui_scale))
@@ -56,6 +55,7 @@ class TabsView:
         return testo.replace("⚠️ ", "").replace("🚨 ", "")
 
     def _make_table(self, color_testo):
+        # crea e stila una singola tabella dei log (una per tab: GENERALE + 3 zone)
         table = QTableWidget()
         table.setColumnCount(len(self.COLONNE))
         table.setHorizontalHeaderLabels(self.COLONNE)
@@ -215,6 +215,7 @@ class TabsView:
             "ISCHIA":        "#c084fc",
         }
 
+        # costruisce le 3 card di zona (Campi Flegrei, Vesuvio, Ischia) sotto le tabelle
         for zona in ["CAMPI FLEGREI", "VESUVIO", "ISCHIA"]:
             accent = zone_title_colors[zona]
 
@@ -252,14 +253,14 @@ class TabsView:
                 border: none;
             """)
 
-            # badge scossa forte
+            # badge scossa forte (mostrato/nascosto in _render_card in base a _zone_alarms)
             alarm_badge = QLabel("")
             alarm_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             alarm_badge.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             alarm_badge.setStyleSheet("QLabel { background-color: transparent; border: none; }")
             alarm_badge.setVisible(False)
 
-            # badge sciame
+            # badge sciame (mostrato/nascosto in _render_card in base a _swarm_states)
             status_badge = QLabel("")
             status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             status_badge.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -331,7 +332,7 @@ class TabsView:
                 }
             """)
 
-            # PICCO DEL PERIODO
+            # PICCO DEL PERIODO (sciame se recente, altrimenti massimo dell'ultimo mese — vedi update_zone_cards)
             peak_layout = QHBoxLayout()
             peak_layout.setContentsMargins(self.scale(2), self.scale(4), self.scale(2), 0)
 
@@ -370,6 +371,7 @@ class TabsView:
 
             self.zone_cards[zona] = card
 
+            # tiene i riferimenti a tutti i widget della card, per poterli aggiornare senza ricrearli
             self.zone_labels[zona] = {
                 "card": card,
                 "accent": accent,
@@ -392,6 +394,8 @@ class TabsView:
         self.on_tab_changed_callback(tab_name)
 
     def update_logs(self, zone, logs):
+        """Ridisegna la tabella di una zona, raggruppando le revisioni dello stesso evento
+        in una riga espandibile (▶/▼), con le revisioni secondarie mostrate solo se espanse."""
         if zone not in self.tab_logs:
             return
 
@@ -430,11 +434,7 @@ class TabsView:
 
     @staticmethod
     def _ultima_revisione(revisioni):
-        """La revisione con la data più recente del gruppo.
-        Usa chiave_data di helpers: la regola di ordinamento sta in un posto solo,
-        così la ★ e l'etichetta "ultimo:" non possono puntare a righe diverse.
-        A parità di data vince la prima della lista: con i duplicati che arrivano
-        da Kafka almeno la scelta è stabile e non cambia a ogni ridisegno."""
+        # revisione con la data più recente nel gruppo, usata per marcare la ★ tra le sotto-righe
         valide = [r for r in revisioni if isinstance(r, dict) and r.get("data")]
         if not valide:
             return None
@@ -443,6 +443,8 @@ class TabsView:
     def _append_row(self, table, entry, n_revisioni=1, espandibile=False,
                     espanso=False, gruppo_chiave=None, sotto_riga=False,
                     data_ultimo_aggiornamento=None, ultima_revisione=False):
+        # aggiunge una riga alla tabella: può essere una riga "principale" (rappresentante di un
+        # gruppo, eventualmente espandibile) o una "sotto-riga" (una revisione del gruppo espanso)
         row = table.rowCount()
         table.insertRow(row)
 
@@ -462,17 +464,18 @@ class TabsView:
             data_part = time_str[:10]
             ora_part = time_str[11:19]
             anno, mese, giorno = data_part.split("-")
-            ora_str = f"{giorno}/{mese}/{anno} {ora_part}"
+            ora_str = f"{giorno}/{mese}/{anno} {ora_part}"   # da ISO (YYYY-MM-DD) a formato italiano
         else:
             ora_str = time_str
 
         colore_mag = self._colore_magnitudo(mag)
 
+        # colonna 0 (pallino/simbolo): significato diverso a seconda del tipo di riga
         if espandibile:
             simbolo = "▼" if espanso else "▶"
             dot_item = QTableWidgetItem(simbolo)
             dot_item.setForeground(QColor("#a0c4e8"))
-            dot_item.setData(Qt.ItemDataRole.UserRole, gruppo_chiave)
+            dot_item.setData(Qt.ItemDataRole.UserRole, gruppo_chiave)   # usato da _on_cell_clicked per sapere quale gruppo aprire/chiudere
         elif sotto_riga:
             # ★ = revisione più recente del gruppo, quella che "vale"
             dot_item = QTableWidgetItem("★" if ultima_revisione else "↳")
@@ -488,6 +491,7 @@ class TabsView:
             dot_item.setBackground(QColor(self.SFONDO_ULTIMA_REVISIONE))
         table.setItem(row, 0, dot_item)
 
+        # se la riga principale ha più revisioni, aggiunge "(N agg.)" o l'orario dell'ultimo aggiornamento
         ora_display = ora_str
         if espandibile and not sotto_riga:
             entry_data = entry.get("data", "")
@@ -511,7 +515,7 @@ class TabsView:
             item = QTableWidgetItem(str(val))
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            if col == 3:
+            if col == 3:   # colonna MAG: sempre colorata/bold in base alla magnitudo
                 item.setForeground(QColor(colore_mag))
                 font = item.font()
                 font.setBold(True)
@@ -536,6 +540,7 @@ class TabsView:
             table.setItem(row, col, item)
 
     def _on_cell_clicked(self, table, row, col):
+        # click solo sulla colonna 0 (pallino/simbolo ▶/▼) espande/comprime il gruppo cliccato
         if col != 0:
             return
         item = table.item(row, 0)
@@ -544,7 +549,7 @@ class TabsView:
 
         gruppo_chiave = item.data(Qt.ItemDataRole.UserRole)
         if gruppo_chiave is None:
-            return
+            return   # riga non espandibile (● singolo o sotto-riga): nessuna azione
 
         zona = next((z for z, t in self.tab_logs.items() if t is table), None)
         if zona is None:
@@ -557,30 +562,19 @@ class TabsView:
             espansi.add(gruppo_chiave)
 
         logs = self._last_logs.get(zona, [])
-        self.update_logs(zona, logs)
+        self.update_logs(zona, logs)   # ridisegna con il nuovo stato espanso/compresso
 
 
     def update_zone_cards(self, all_logs, source=None):
-        """
-        Aggiorna le card delle tre aree.
-
-        La magnitudo grande al centro rappresenta l'ultima scossa della zona.
-
-        La riga inferiore mostra:
-        - "Picco sciame" se nella zona esiste uno sciame negli ultimi 30 giorni;
-        - "Picco ultimo mese" negli altri casi, usando la magnitudo più alta
-          registrata negli ultimi 30 giorni.
-
-        La data di riferimento è l'evento più recente presente nell'intero
-        insieme dei dati. Questo permette alla finestra dei 30 giorni di
-        funzionare correttamente anche durante il replay di registrazioni vecchie.
-        """
+        # source non è usato nel corpo del metodo: parametro accettato ma ignorato
 
         zone = ["CAMPI FLEGREI", "VESUVIO", "ISCHIA"]
 
         # ─────────────────────────────────────────────────────
         # RIFERIMENTO TEMPORALE GLOBALE
         # ─────────────────────────────────────────────────────
+        # calcola "adesso" come la data più recente vista nei dati (non datetime.now()), così
+        # il calcolo "ultimo mese" funziona correttamente anche durante un replay di dati vecchi
         date_globali = []
 
         for evento in all_logs.get("GENERALE", []):
@@ -753,6 +747,8 @@ class TabsView:
             # ─────────────────────────────────────────────────
             # PICCO SCIAME O PICCO ULTIMO MESE
             # ─────────────────────────────────────────────────
+            # priorità al picco dello sciame se è "recente" (entro l'ultimo mese rispetto al
+            # riferimento); altrimenti si ripiega sul massimo degli eventi ordinari dell'ultimo mese
             magnitudo_picco = None
             sciame_recente = False
 
@@ -854,11 +850,8 @@ class TabsView:
                 """)
 
     def update_zone_swarm_peak(self, zona, magnitudo, data_sciame=None):
-     """
-     Salva il picco dello sciame insieme alla sua data.
-     Mantiene il valore più alto se arrivano più aggiornamenti
-     relativi allo stesso periodo.
-     """
+     # memorizza il picco di magnitudo dello sciame corrente per la zona, conservando
+     # il valore più alto quando arrivano più comunicati sullo stesso periodo
      if zona not in self.zone_labels:
         return
 
@@ -900,7 +893,7 @@ class TabsView:
         self._render_card(zona)
 
     def update_zone_alarm(self, zona, mag):
-        """Accende/spegne l'allerta scossa forte. mag=None per spegnere."""
+        # mag=None spegne l'allarme della card (vedi SystemController._spegni_allarme_card)
         if zona not in self.zone_labels:
             return
         if mag is None:
@@ -910,9 +903,8 @@ class TabsView:
         self._render_card(zona)
 
     def _render_card(self, zona):
-        """UNICO punto che decide l'aspetto della card.
-        Priorità sulla cornice: allarme > sciame > normale.
-        I due badge invece convivono: puoi avere sciame in corso E scossa forte."""
+        # ridisegna badge e cornice della card in base allo stato corrente di allarme/sciame
+        
         labels = self.zone_labels[zona]
         card = labels["card"]
         accent = labels["accent"]
@@ -962,7 +954,7 @@ class TabsView:
         else:
             labels["status"].setVisible(False)
 
-        # ── cornice della card ──
+        # ── cornice della card ── priorità: allarme > sciame attivo > normale
         if mag_allarme is not None:
             bordo, sfondo, spessore = self.COLORE_ALLARME, self.SFONDO_ALLARME, 3
         elif sciame_attivo:
@@ -1008,10 +1000,15 @@ class TabsView:
             self.tabs.tabBar().setTabTextColor(tab_index, QColor("#a0c4e8"))
 
     def _raggruppa_per_evento(self, logs):
+        # wrapper "pass-through" — chiama semplicemente la funzione
+        # raggruppa_per_evento importata da utils.helpers senza aggiungere logica propria.
+        # Candidato alla rimozione: si potrebbe chiamare raggruppa_per_evento(logs)
+        # direttamente da update_logs (che già lo fa, vedi sopra) invece di passare da qui.
         return raggruppa_per_evento(logs)
 
     @staticmethod
     def _colore_magnitudo(mag):
+        # soglie coerenti con la legenda della mappa (map.html) e con magnitudo2colore() in JS
         if mag is None:
             return "#6b7280"
         if mag < 1.0:

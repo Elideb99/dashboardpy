@@ -1,216 +1,233 @@
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QApplication
-from PyQt6.QtGui import QIcon
 
 from views.components.header import HeaderView
 from views.components.tabs import TabsView
 from views.components.map_widget import MapWidget
-from views.components.controls import ControlsView
 from views.dialogs import AlarmDialog
 from utils.helpers import compute_ui_scale
-from models.system_model import SystemStatus
-
 
 
 class DashboardView(QMainWindow):
-    """VIEW: Gestisce l'interfaccia utente"""
-    
+    """VIEW: gestisce la finestra principale e i componenti dell'interfaccia."""
+
+    # Inizializza la finestra, calcola la scala grafica e crea l'interfaccia.
     def __init__(self, controller):
         super().__init__()
-        
-        self.controller = controller # memorizza il riferimento al controller
-        # dashboard_view.py  →  __init__
+
+        self.controller = controller
+
         screen = QApplication.primaryScreen()
         self.ui_scale = compute_ui_scale(
-        screen.geometry().width(),
-        dpi=screen.physicalDotsPerInchX(),
-        device_pixel_ratio=screen.devicePixelRatio()
-        ) # calcola il fattore di scala
-        
+            screen.geometry().width(),
+            dpi=screen.physicalDotsPerInchX(),
+            device_pixel_ratio=screen.devicePixelRatio()
+        )
+
         self.setWindowTitle("Sala di Monitoraggio - Simulatore")
-        self.setMinimumSize(900, 600) # dimensione minima
+        self.setMinimumSize(900, 600)
         self.setStyleSheet(
-        f"background-color: #0F1521; color: #ffffff;"
-         )        # applica uno stile css alla finestra
+            "background-color: #0F1521; color: #ffffff;"
+        )
 
         self.tabs_view = None
         self.header = None
         self.map_widget = None
-        self.controls = None
-        
+
         self._setup_ui()
         self._setup_timers()
-      
-    
+
+    # Ridimensiona un valore in base al fattore di scala dell'interfaccia.
     def scale(self, v):
         return max(1, int(v * self.ui_scale))
-    
+
+    # Crea e dispone tutti i componenti grafici della finestra.
     def _setup_ui(self):
         central = QWidget()
         central.setStyleSheet("background-color: #0D1520;")
-        main_layout = QVBoxLayout() # crea un layout verticale per organizzare i componenti
-        main_layout.setContentsMargins(self.scale(15), self.scale(15), self.scale(15), self.scale(15))
+
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(
+            self.scale(15),
+            self.scale(15),
+            self.scale(15),
+            self.scale(15)
+        )
         main_layout.setSpacing(self.scale(15))
-        
-        # Header- barra superiore
+
+        # Crea l'header superiore.
         self.header = HeaderView(self, self.ui_scale)
         self.header.create(main_layout)
-        
-        # Body
+
+        # Crea il contenitore principale.
         body = QHBoxLayout()
         body.setSpacing(self.scale(15))
-        
-        # Left panel
+
+        # Crea il pannello sinistro con log e controlli.
         left_panel = QVBoxLayout()
-        self.tabs_view = TabsView(self, self.ui_scale, self.controller.on_tab_changed)
+
+        self.tabs_view = TabsView(
+            self,
+            self.ui_scale,
+            self.controller.on_tab_changed
+        )
         self.tabs_view.create(left_panel)
-        
-        # Controls
-        #collega i controlli ai pulsanti
-        self.controls = ControlsView(self, self.ui_scale)
-        self.controls.create(left_panel)
-        self.controls.set_controller(self.controller)
-        
-        # Map
+
+
+        # Crea e configura la mappa.
         self.map_widget = MapWidget(self, self.ui_scale)
         self.map_widget.create()
         self.map_widget.set_on_loaded(self.controller.on_map_loaded)
-        self.map_widget.map_page.zone_clicked.connect(self._on_map_zone_clicked)
-        self.map_widget.map_page.replay_requested.connect(self.controller.on_replay_sciame_richiesto)
-        
-        self.map_widget.set_on_filter(self.controller.on_filter_changed)
+        self.map_widget.map_page.zone_clicked.connect(
+            self._on_map_zone_clicked
+        )
+        self.map_widget.map_page.replay_requested.connect(
+            self.controller.on_replay_sciame_richiesto
+        )
+        self.map_widget.set_on_filter(
+            self.controller.on_filter_changed
+        )
 
+        self.controller.map_service.set_webview(
+            self.map_widget.webview
+        )
 
-        self.controller.map_service.set_webview(self.map_widget.webview)
-        
-
-        ratio_left, ratio_right = 5, 5  # mai più largo dei log
+        ratio_left, ratio_right = 5, 5
 
         base_font_px = max(12, int(14 * self.ui_scale))
         self.setStyleSheet(
-        f"background-color: #0D1520; color: #ffffff; font-size: {base_font_px}px;"
+            f"background-color: #0D1520; "
+            f"color: #ffffff; "
+            f"font-size: {base_font_px}px;"
         )
-        
-        body.addLayout(left_panel, ratio_left) # aggiungi pannello sx e dx
+
+        body.addLayout(left_panel, ratio_left)
         body.addWidget(self.map_widget.frame, ratio_right)
-        
+
         main_layout.addLayout(body)
         central.setLayout(main_layout)
         self.setCentralWidget(central)
-    
+
+    # Configura i timer usati per orologio, titolo e aggiornamenti della mappa.
     def _setup_timers(self):
-        # Clock timer
         self.clock_timer = QTimer()
         self.clock_timer.timeout.connect(self._update_clock)
         self.clock_timer.start(1000)
-        
-        # Event time timer
+
         self.event_timer = QTimer()
         self.event_timer.timeout.connect(self._update_event_title)
         self.event_timer.start(1000)
-        
-        # Map queue timer
-        self.queue_timer = QTimer() # timer per processare gli aggiornamenti in coda
-        self.queue_timer.timeout.connect(self.controller.process_pending_updates)
+
+        self.queue_timer = QTimer()
+        self.queue_timer.timeout.connect(
+            self.controller.process_pending_updates
+        )
         self.queue_timer.start(100)
-    
-    # ─── UI UPDATE METHODS ───────────────────────────────────
+
+    # Aggiorna l'interfaccia in base ai dati presenti nel modello.
     def update_ui(self):
-        """Aggiorna tutta l'UI in base al model"""
         self._update_logs()
         self._update_state_from_model()
 
- 
-    
+    # Aggiorna le tabelle dei log visualizzate nelle schede.
     def _update_logs(self):
-        """Aggiorna i tab dei log"""
         self.controller.render_logs_filtrati()
 
-        # self._update_state_from_logs()
-
+    # Aggiorna l'header usando lo stato determinato dal modello.
     def _update_state_from_model(self):
-        """Lo stato lo decide il model, la view lo mostra e basta."""
         evento = self.controller.model.evento_stato
+
         if evento is None:
             self.header.update_state_from_event(None)
             return
-        mag = self._parse_magnitudo(evento.get("magnitudine"))
-        self.header.update_state_from_event(mag, evento.get("data"))
 
+        mag = self._parse_magnitudo(
+            evento.get("magnitudine")
+        )
+        self.header.update_state_from_event(
+            mag,
+            evento.get("data")
+        )
 
-
+    # Converte una magnitudo testuale in float.
     @staticmethod
     def _parse_magnitudo(mag_raw):
-     """Converte stringhe tipo 'M1.1', 'M-0.3', '1.27' o 'n.d.' in float, o None se non valido."""
-     if mag_raw is None:
-        return None
-     s = str(mag_raw).strip().upper()
-     if s in ("N.D.", "ND", "NA", "N/A", ""):
-        return None
-     s = s.lstrip("M").strip()  # rimuove il prefisso "M"
-     try:
-        return float(s)
-     except ValueError:
-        return None
-    
+        if mag_raw is None:
+            return None
+
+        s = str(mag_raw).strip().upper()
+
+        if s in ("N.D.", "ND", "NA", "N/A", ""):
+            return None
+
+        s = s.lstrip("M").strip()
+
+        try:
+            return float(s)
+        except ValueError:
+            return None
+
+    # Aggiorna data e ora locale e UTC mostrate nell'header.
     def _update_clock(self):
-     """Aggiorna orologio e data con ora locale e UTC"""
-     local_time = self.controller.get_current_time()
-     utc_time = self.controller.get_utc_time()
-     local_date = self.controller.get_current_date()
-     utc_date = self.controller.get_current_date_utc()
-     self.header.update_clock(local_time, utc_time, local_date, utc_date)
-    
+        local_time = self.controller.get_current_time()
+        utc_time = self.controller.get_utc_time()
+        local_date = self.controller.get_current_date()
+        utc_date = self.controller.get_current_date_utc()
+
+        self.header.update_clock(
+            local_time,
+            utc_time,
+            local_date,
+            utc_date
+        )
+
+    # Aggiorna il titolo principale della finestra.
     def _update_event_title(self):
-        """Aggiorna il titolo con il tempo dall'ultimo evento"""
-        self.setWindowTitle(f"Sala di Monitoraggio")
-    
-    def flash_title(self):
-        """Lampeggia il titolo"""
-        original = self.windowTitle()
-        for i in range(4):
-            QTimer.singleShot(i * 300, lambda: self.setWindowTitle("ALLARME!"))
-            QTimer.singleShot(i * 300 + 150, lambda: self.setWindowTitle(original))
-        QTimer.singleShot(1200, self._update_event_title)
-    
+        self.setWindowTitle("Sala di Monitoraggio")
+
+
+    # Mostra il popup di allarme con magnitudo e zona.
     def show_alarm_popup(self, magnitudo, zona):
-        """Mostra popup allarme con lo stile originale"""
-        dialog = AlarmDialog(self, self.ui_scale, magnitudo, zona)
+        dialog = AlarmDialog(
+            self,
+            self.ui_scale,
+            magnitudo,
+            zona
+        )
         dialog.exec()
-    
+
+    # Ripristina il titolo originale della finestra.
     def reset_window_title(self):
-        """Resetta il titolo"""
-        self.setWindowTitle("Sala di Monitoraggio - Simulatore") # ripristina il titolo originale
-    
-   
+        self.setWindowTitle(
+            "Sala di Monitoraggio - Simulatore"
+        )
+
+    # Aggiorna header e mappa quando la finestra viene ridimensionata.
     def resizeEvent(self, event):
-     """Gestisce il ridimensionamento della finestra."""
-     super().resizeEvent(event)
+        super().resizeEvent(event)
 
-     if self.header:
-        self.header.resize(self.width())
+        if self.header:
+            self.header.resize(self.width())
 
-     if self.map_widget:
-        self.map_widget.update_height(self.ui_scale)
+        if self.map_widget:
+            self.map_widget.update_height(
+                self.ui_scale
+            )
+            self.controller.refresh_map()
 
-        # Aspetta che il layout abbia terminato il ridimensionamento.
-        self.controller.refresh_map()
-
+    # Seleziona la scheda corrispondente alla zona cliccata sulla mappa.
     def _on_map_zone_clicked(self, zona):
-     tab_nomi = ["GENERALE", "CAMPI FLEGREI", "VESUVIO", "ISCHIA"]
-     if zona not in tab_nomi:
-        return
-     idx_zona = tab_nomi.index(zona)
+        tab_nomi = [
+            "GENERALE",
+            "CAMPI FLEGREI",
+            "VESUVIO",
+            "ISCHIA"
+        ]
 
-    # Seleziona la zona e la mantiene selezionata
-     self.tabs_view.tabs.setCurrentIndex(idx_zona)
+        if zona not in tab_nomi:
+            return
 
-    def set_time_filter(self, value):
-     if self.map_widget and self.map_widget.webview:
-        self.map_widget.webview.page().runJavaScript(f"""
-            if (window.setTimeFilter) {{
-                window.setTimeFilter("{value}");
-            }} else {{
-                console.warn("setTimeFilter non ancora pronta, valore in coda");
-            }}
-        """)
+        idx_zona = tab_nomi.index(zona)
+        self.tabs_view.tabs.setCurrentIndex(
+            idx_zona
+        )

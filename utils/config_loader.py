@@ -1,7 +1,7 @@
 from configparser import ConfigParser
 from pathlib import Path
 
-
+# config.ini si aspetta un livello sopra la cartella di questo modulo (root del progetto)
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.ini"
 

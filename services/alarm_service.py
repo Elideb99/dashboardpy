@@ -1,5 +1,8 @@
 """Gestione allarmi basati su magnitudo per eventi sismici automatici."""
 
+# NB: elenco degli autori "umani" — coerente con SystemModel.is_manuale() nel model,
+# che fa una distinzione automatico/manuale analoga: se una delle due liste cambia,
+# verificare se va aggiornata anche l'altra per restare allineate.
 MANUAL_AUTHORS = {"Turnista", "Laboratorio di Sismologia"}
 DEFAULT_THRESHOLD = 3.0
 

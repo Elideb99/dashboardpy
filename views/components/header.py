@@ -26,6 +26,7 @@ class HeaderView:
         return f"{self.scale(px)}px"
     
     def create(self, main_layout):
+     # header orizzontale: logo+titoli a sx, poi data/ora, poi stato sistema, poi stato sciame
      header_frame = QFrame()
      header_frame.setStyleSheet("background-color: #0F1521; border-radius: 8px;")
      header_frame.setMinimumHeight(self.scale(95))
@@ -83,13 +84,13 @@ class HeaderView:
      self.swarm_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
      layout.addWidget(self.swarm_label)
 
-     self.update_swarm_state("N.D.", "#53565A")
+     self.update_swarm_state("N.D.", "#53565A")   # stato iniziale, prima che arrivi qualunque dato
 
      return container
 
 
     def update_swarm_state(self, state, color="#53565A", tooltip=""):
-     """Aggiorna il riquadro dello sciame sismico"""
+     """Aggiorna il riquadro dello sciame sismico (chiamata da SystemController)"""
 
      if not self.swarm_label:
         return
@@ -107,6 +108,7 @@ class HeaderView:
      """)
     
     def _create_logo(self, layout):
+        # usa il logo INGV se presente, altrimenti emoji vulcano come fallback
         self.logo_label = QLabel()
         logo_size = self.scale(100)
         logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "ingvlogo.png")
@@ -267,7 +269,7 @@ class HeaderView:
      return container
 
     def _apply_state_style(self, color):
-     """Applica lo sfondo colorato + testo bianco alla pillola di stato"""
+     """Applica lo sfondo colorato + testo bianco alla pillola di stato, e ridisegna lo scudo con lo stesso colore"""
 
      self.state_label.setStyleSheet(f"""
         background-color: {color};
@@ -284,6 +286,7 @@ class HeaderView:
         self.state_icon.setPixmap(self._draw_shield_icon(color))
      # ─── STATO SISTEMA basato sull'ultimo evento sismico ──────────
     def update_state_from_event(self, magnitudo=None, timestamp=None):
+     # soglie coerenti con should_alarm/DEFAULT_THRESHOLD in alarm_service.py (3.0) e con l'ATTENZIONE a 2.0
      if magnitudo is None:
         self.update_state("N.D.", "#53565A")
         if self.state_label:
@@ -308,6 +311,7 @@ class HeaderView:
     
    
     def update_clock(self, time_str, utc_time, date_str=None, date_utc_str=None):
+     # data_str/date_utc_str sono opzionali: se non passati la data resta quella già mostrata
      self.ora_label.setText(time_str)
      self.utc_label.setText(f"{utc_time} UTC")
      if date_str:
@@ -315,24 +319,22 @@ class HeaderView:
      if date_utc_str:
         self.data_utc_label.setText(f"{date_utc_str} UTC")
         
-    
-    def update_date(self, date_str):
-        """Aggiorna la data"""
-        self.data_label.setText(date_str)
+   
     
     def resize(self, width):
-     """Gestisce il resize dell'header"""
+     """Gestisce il resize dell'header, ricalcolando le dimensioni dei font in base alla larghezza"""
      if width >= 3840:
-        t1, t2, td, ts, ls = "48px", "36px", "36px", "30px", 160
+        t1, t2, td, ls = "48px", "36px", "36px", "30px", 160
      elif width >= 2560:
-        t1, t2, td, ts, ls = "38px", "28px", "30px", "24px", 130
+        t1, t2, td, ls = "38px", "28px", "30px", "24px", 130
      elif width >= 1920:
-        t1, t2, td, ts, ls = "30px", "24px", "24px", "20px", 100
+        t1, t2, td, ls = "30px", "24px", "24px", "20px", 100
      elif width >= 1400:
-        t1, t2, td, ts, ls = "26px", "20px", "20px", "17px", 85
+        t1, t2, td, ls = "26px", "20px", "20px", "17px", 85
      else:
-        t1, t2, td, ts, ls = "20px", "15px", "16px", "15px", 60
+        t1, t2, td, ls = "20px", "15px", "16px", "15px", 60
 
+    
      self.title1.setStyleSheet(f"font-size: {t1}; font-weight: bold; color: white;")
      self.title2.setStyleSheet(f"font-size: {t2}; color: #cccccc;")
      self.data_label.setStyleSheet(f"font-size: {td}; color: white; font-family: monospace;")
@@ -351,7 +353,7 @@ class HeaderView:
         )
 
     def _draw_shield_icon(self, color, size=None):
-     """Disegna un'icona a scudo colorata dinamicamente (nessun file esterno)"""
+     """Disegna un'icona a scudo colorata dinamicamente (nessun file esterno), con segno di spunta al centro"""
      if size is None:
         size = self.scale(24)
 

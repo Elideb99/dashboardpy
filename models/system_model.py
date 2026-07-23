@@ -1,4 +1,3 @@
-
 from enum import Enum
 import json
 
@@ -21,6 +20,7 @@ class SystemModel:
     SOGLIA_ALLARME    = 3.0
     SOGLIA_ATTENZIONE = 2.0
 
+    # Inizializza lo stato del sistema, i log e la lista degli observer.
     def __init__(self):
         self._status = SystemStatus.QUIETE
         self._evento_stato = None      # evento che ha determinato lo stato corrente
@@ -37,6 +37,7 @@ class SystemModel:
     # Distinzione automatico / manuale
     # ------------------------------------------------------------------
     @staticmethod
+    # Stabilisce se un evento è stato revisionato manualmente.
     def is_manuale(log_entry: dict) -> bool:
         """
         Restituisce True soltanto quando l'autore è presente
@@ -56,6 +57,7 @@ class SystemModel:
     # Stato di sistema
     # ------------------------------------------------------------------
     @classmethod
+    # Determina lo stato del sistema in base alla magnitudo.
     def _status_da_magnitudo(cls, mag) -> SystemStatus:
         """mag=None è un esito valido (N.D.), non un errore."""
         if mag is None:
@@ -67,6 +69,7 @@ class SystemModel:
         return SystemStatus.NORMALE
 
     @staticmethod
+    # Converte la magnitudo in float, restituendo None se non valida.
     def _to_float(mag):
         """Converte a float, oppure None se assente o non valida."""
         if mag is None:
@@ -76,6 +79,7 @@ class SystemModel:
         except (TypeError, ValueError):
             return None
 
+    # Aggiorna lo stato usando l'evento cronologicamente più recente.
     def aggiorna_stato_da_logs(self, seleziona_ultima_scossa_fn, richiedi_automatico: bool = True):
      """
      MODALITÀ REALE: lo stato segue l'evento cronologicamente più recente.
@@ -99,6 +103,7 @@ class SystemModel:
      self.status = self._status_da_magnitudo(mag)
      return ultimo
 
+    # Aggiorna lo stato usando l'ultimo evento ricevuto.
     def aggiorna_stato_da_evento_ricevuto(self, evento: dict):
         """
         MODALITÀ TEST/REPLAY: lo stato segue l'ultimo messaggio ARRIVATO,
@@ -119,6 +124,7 @@ class SystemModel:
         self.status = self._status_da_magnitudo(mag)
         return evento
 
+    # Riporta il sistema nello stato di quiete.
     def reset_a_quiete(self):
         """Chiamato dal timer del Controller dopo abbastanza silenzio."""
         if self._status is SystemStatus.QUIETE:
@@ -129,40 +135,49 @@ class SystemModel:
     # ------------------------------------------------------------------
     # Observer pattern esistente
     # ------------------------------------------------------------------
+    # Registra un observer da notificare quando il modello cambia.
     def add_observer(self, observer):
         self._observers.append(observer)
 
+    # Notifica agli observer che i dati del modello sono cambiati.
     def notify_observers(self):
         for observer in self._observers:
             observer.update_ui()
 
     @property
+    # Restituisce o aggiorna lo stato corrente del sistema.
     def status(self):
         return self._status
 
     @status.setter
+    # Restituisce o aggiorna lo stato corrente del sistema.
     def status(self, value):
         self._status = value
         self.notify_observers()
 
     @property
+    # Restituisce l'evento che ha determinato lo stato corrente.
     def evento_stato(self):
         """L'evento che ha determinato lo stato corrente. None se in QUIETE."""
         return self._evento_stato
 
     @property
+    # Restituisce o aggiorna l'istante di arrivo dell'ultimo evento.
     def last_event_time(self):
         return self._last_event_time
 
     @last_event_time.setter
+    # Restituisce o aggiorna l'istante di arrivo dell'ultimo evento.
     def last_event_time(self, value):
         self._last_event_time = value
         self.notify_observers()
 
     @property
+    # Restituisce i log suddivisi per zona.
     def tab_logs(self):
         return self._tab_logs
 
+    # Aggiunge un singolo evento ai log della zona indicata.
     def add_log(self, zone, message):
         if zone not in self._tab_logs:
             zone = "GENERALE"
@@ -179,6 +194,7 @@ class SystemModel:
 
         self.notify_observers()
 
+    # Aggiunge più eventi ai log della zona indicata.
     def add_log_batch(self, zona: str, messaggi: list):
         if zona not in self._tab_logs:
             zona = "GENERALE"
@@ -195,6 +211,7 @@ class SystemModel:
 
         self.notify_observers()
 
+    # Restituisce il colore associato allo stato corrente.
     def get_status_color(self):
         colors = {
             SystemStatus.QUIETE:          "#53565A",   # grigio "a riposo"
@@ -206,6 +223,7 @@ class SystemModel:
         return colors.get(self._status, "#53565A")
 
     @staticmethod
+    # Estrae e normalizza i dati utili da un messaggio Kafka.
     def filtra_messaggio_kafka(msg_value) -> dict | None:
         """
         Estrae i dati essenziali da un messaggio Kafka INGV.

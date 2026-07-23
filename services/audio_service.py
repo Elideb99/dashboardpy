@@ -10,6 +10,9 @@ class AudioService: #classe per gestire la riproduzione audio
         self._audio_process = None # inizializza il processo audio a none
         self.audio_available = False # flag per indicare se l'audio è disponibile
         
+        # ATTENZIONE: il file "/proc/version" viene aperto con open(...) senza chiuderlo
+        # (niente "with" né .close()) — su un singolo avvio non è un problema serio,
+        # ma è una risorsa non rilasciata esplicitamente.
         self._is_wsl = ( #rileva wsl
             os.path.exists("/proc/version")
             and "microsoft" in open("/proc/version").read().lower()
@@ -38,15 +41,15 @@ class AudioService: #classe per gestire la riproduzione audio
     def is_ready(self): # verifica se l'audio è pronto
         return self.alarm and self.alarm.status() == QSoundEffect.Status.Ready
     
-    def play(self): # riproduce l'audio
+    def play(self): # riproduce l'audio, con fallback in cascata a seconda della piattaforma
         if self._is_wsl:
             self._play_wsl() # se in wsl usa _play_wsl
         elif self.alarm and self.audio_available and self.is_ready():
-            self.alarm.play() # ò'audio è caricato e pronto riproduce il suono 
+            self.alarm.play() # se l'audio è caricato e pronto riproduce il suono
         elif hasattr(self, '_aplay_available') and self._aplay_available and os.path.exists(self.wav_path):
-            self._play_aplay() # se fallisce usa aplay
+            self._play_aplay() # se fallisce (QSoundEffect non pronto) prova con aplay
     
-    def stop(self): # stoppa l'audio 
+    def stop(self): # stoppa l'audio (sia il QSoundEffect sia un eventuale processo esterno powershell/aplay)
         if not self._is_wsl and self.alarm and self.is_ready():
             self.alarm.stop()
         if self._audio_process and self._audio_process.poll() is None:
@@ -54,6 +57,7 @@ class AudioService: #classe per gestire la riproduzione audio
             self._audio_process = None
     
     def _play_wsl(self):
+        # su WSL non c'è output audio diretto: delega a PowerShell.exe sull'host Windows
         if os.path.exists(self.wav_path):
             try: # se esiste già un audio in esecuzione allora lo termina
                 if self._audio_process and self._audio_process.poll() is None:
@@ -67,6 +71,7 @@ class AudioService: #classe per gestire la riproduzione audio
                 print(f"⚠️ Errore PowerShell audio: {e}")
     
     def _play_aplay(self):
+        # fallback Linux nativo (non-WSL) quando QSoundEffect non è disponibile/pronto
         try:
             if self._audio_process and self._audio_process.poll() is None:
                 self._audio_process.terminate()

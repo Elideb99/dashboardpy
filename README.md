@@ -36,21 +36,9 @@ Riceve eventi sismici da Kafka o da un'API REST (Serenade), li mostra su una map
 Simulazione di uno sciame sismico ai Campi Flegrei, rigiocato da una registrazione Kafka
 (`python main.py --replay`): arrivo degli eventi, aggiornamento della mappa e delle tabelle,
 badge di sciame, allarme sopra soglia e replay dello sciame nel riquadro dedicato.
- 
-<!-- VARIANTE 1 — video caricato su GitHub (consigliata).
-     Trascina il file .mp4 nella casella di testo di una issue o di una PR:
-     GitHub lo carica e restituisce un URL https://github.com/user-attachments/assets/...
-     Incolla quell'URL qui sotto DA SOLO su una riga, senza sintassi markdown.
-     Limite 10 MB; si vede solo su github.com. -->
- 
-<!-- VARIANTE 2 — GIF nel repository (si vede ovunque, anche offline):
-![Demo della dashboard](docs/demo.gif)
-     Da mp4 a GIF:
-     ffmpeg -i demo.mp4 -vf "fps=10,scale=900:-1:flags=lanczos" -loop 0 docs/demo.gif -->
- 
-<!-- VARIANTE 3 — anteprima cliccabile che porta al video:
-[![Demo della dashboard](docs/demo-thumb.png)](URL_DEL_VIDEO) -->
- 
+
+![Demo della Dashboard](docs/demo.gif)
+
 ---
 
 

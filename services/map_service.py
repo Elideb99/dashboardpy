@@ -4,7 +4,7 @@ import os
 class MapService:
     def __init__(self):
         self.webview = None
-        self.map_ready = False # flage che indica se la mappa è caricata e pronta per ricevere i comandi 
+        self.map_ready = False # flag che indica se la mappa è caricata e pronta per ricevere i comandi 
         self.pending_updates = [] # lista per gli aggiornamenti in sospeso
         self.current_map_provider = None # memorizza il provider della mappa
     

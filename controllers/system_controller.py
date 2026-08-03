@@ -318,7 +318,10 @@ class SystemController(QObject):
 
         self._update_swarm_widget(zona)
         if self.view:
-            self.view.tabs_view.update_zone_cards(self.model.tab_logs, source="kafka")
+            self.view.tabs_view.update_zone_cards(
+             self.model.tab_logs,
+             source="replay" if self._in_replay() else "kafka"
+            )
             self._filtra_e_aggiorna_logs()
 
         # ── AGGIORNAMENTO STATO SISTEMA ────────────────────────────────
@@ -793,4 +796,5 @@ class SystemController(QObject):
         getattr(w, "replay_file", None)
         or getattr(w, "replay_path", None)
         or getattr(w, "from_file", False)
+        or getattr(w, "files", None)
      )

@@ -566,7 +566,6 @@ class TabsView:
 
 
     def update_zone_cards(self, all_logs, source=None):
-        # source non è usato nel corpo del metodo: parametro accettato ma ignorato
 
         zone = ["CAMPI FLEGREI", "VESUVIO", "ISCHIA"]
 
@@ -599,9 +598,13 @@ class TabsView:
             if data_sciame is not None:
                 date_globali.append(data_sciame)
 
-        # Nel replay utilizza la data più recente dei dati.
-        # Se non ci sono dati, utilizza l'ora corrente.
-        riferimento = max(date_globali) if date_globali else datetime.now()
+        # Nel replay il periodo viene calcolato rispetto all'ultimo dato registrato.
+        # Nella modalità normale viene calcolato rispetto alla data reale.
+        if source == "replay":
+          riferimento = max(date_globali) if date_globali else datetime.now()
+        else:
+          riferimento = datetime.now()
+
         limite_ultimo_mese = riferimento - timedelta(days=30)
 
         # ─────────────────────────────────────────────────────

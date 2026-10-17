@@ -440,6 +440,9 @@ class SystemController(QObject):
 
     # Riproduce l'allarme, evidenzia la card e mostra il popup.
     def _trigger_alarm(self, filtrato: dict):
+        # Aggiorna lo stato generale prima di mostrare il popup.
+        self.model.imposta_allarme(filtrato)
+
         self.audio_service.play()
         zona = self._normalizza_zona_kafka(filtrato.get("area"))
         print(f"🚨 [ALLARME] Evento automatico M{filtrato['magnitudine']} — "

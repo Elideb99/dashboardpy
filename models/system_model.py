@@ -124,6 +124,14 @@ class SystemModel:
         self.status = self._status_da_magnitudo(mag)
         return evento
 
+
+    # Imposta lo stato di allarme quando viene attivato il popup.
+    def imposta_allarme(self, evento: dict):
+        """Forza lo stato ALLARME e notifica gli observer della dashboard."""
+        self._evento_stato = evento
+        self.status = SystemStatus.ALLARME
+
+
     # Riporta il sistema nello stato di quiete.
     def reset_a_quiete(self):
         """Chiamato dal timer del Controller dopo abbastanza silenzio."""
